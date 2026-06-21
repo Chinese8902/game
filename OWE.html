@@ -1,0 +1,222 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ROC项目 - 独立开发者工作室</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box;font-family:system-ui}
+body{background:#0f172a;color:#f1f5f9;line-height:1.6}
+/* 头部导航 */
+header{background:linear-gradient(135deg,#6366f1,#8b5cf6);padding:20px;position:relative}
+.menu-btn{position:absolute;top:22px;right:20px;font-size:28px;color:#fff;background:transparent;border:none;cursor:pointer}
+.logo{width:120px;height:120px;margin:0 auto 10px}
+h1{font-size:26px;margin-bottom:6px;text-align:center}
+.desc{opacity:0.9;text-align:center}
+.container{max-width:700px;margin:0 auto;padding:20px}
+.section{background:#1e293b;border-radius:14px;padding:20px;margin-bottom:20px}
+h2{color:#a5b4fc;margin-bottom:12px;border-left:4px solid #8b5cf6;padding-left:10px}
+ul{padding-left:22px;margin:10px 0}
+ul li{margin:8px 0}
+footer{text-align:center;padding:20px;color:#94a3b8;font-size:14px}
+a{color:#fff;text-decoration:none}
+.btn{display:inline-block;margin:10px 8px 0 0;padding:10px 20px;background:#6366f1;border-radius:8px;color:#fff;border:none;cursor:pointer;font-size:16px}
+
+/* 侧边抽屉菜单样式 */
+.side-menu{
+  position:fixed;
+  top:0;
+  right:-260px;
+  width:260px;
+  height:100vh;
+  background:#1e293b;
+  padding:60px 20px;
+  transition:right 0.3s ease;
+  z-index:999;
+}
+.side-menu.open{right:0}
+.menu-close{
+  position:absolute;
+  top:16px;
+  left:16px;
+  background:none;
+  border:none;
+  color:#fff;
+  font-size:24px;
+  cursor:pointer;
+}
+.menu-item{
+  display:block;
+  width:100%;
+  padding:14px 12px;
+  margin:6px 0;
+  background:#334155;
+  border:none;
+  border-radius:8px;
+  color:#fff;
+  text-align:left;
+  font-size:16px;
+  cursor:pointer;
+}
+.menu-item:hover{background:#6366f1}
+
+/* 遮罩层 */
+.mask{
+  position:fixed;
+  inset:0;
+  background:rgba(0,0,0,0.6);
+  display:none;
+  z-index:998;
+}
+.mask.show{display:block}
+
+/* 密码提示卡片 */
+.tip-card{
+  background:#334155;
+  padding:12px;
+  border-radius:10px;
+  margin:12px 0;
+}
+/* QQ群高亮样式 */
+.qq-group-box{
+  background:#7c3aed;
+  padding:20px;
+  border-radius:12px;
+  text-align:center;
+  margin:15px 0;
+}
+.qq-num{
+  font-size:32px;
+  font-weight:bold;
+  letter-spacing:2px;
+  margin:10px 0;
+}
+</style>
+</head>
+<body>
+<!-- 侧边抽屉菜单 -->
+<div class="side-menu" id="sideMenu">
+  <button class="menu-close" id="closeMenu">×</button>
+  <button class="menu-item" onclick="goSection('group')">官方群</button>
+  <button class="menu-item" onclick="goSection('download')">工具下载</button>
+  <button class="menu-item" onclick="goSection('about')">关于作者</button>
+  <button class="menu-item" onclick="goSection('rule')">免责声明</button>
+</div>
+<!-- 遮罩 -->
+<div class="mask" id="mask"></div>
+
+<!-- 头部 -->
+<header>
+  <button class="menu-btn" id="openMenu">☰</button>
+  <svg class="logo" viewBox="0 0 2048 2048" xmlns="http://www.w3.org/2000/svg">
+    <defs>
+      <linearGradient id="purpleGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+        <stop offset="0%" stop-color="#6366f1"/>
+        <stop offset="100%" stop-color="#8b5cf6"/>
+      </linearGradient>
+    </defs>
+    <rect width="2048" height="2048" rx="256" fill="#fff"/>
+    <path d="M512 576v896h256v-320h256v-256H768v-320h512V576H512z" fill="url(#purpleGrad)"/>
+    <path d="M1024 576v896h256v-320h256v-256h-256v-320h256V576h-512z" fill="url(#purpleGrad)"/>
+    <circle cx="1536" cy="1536" r="96" fill="url(#purpleGrad)"/>
+  </svg>
+  <h1>ROC项目 独立工作室</h1>
+  <p class="desc">个人独立开发 · 轻量化工具项目</p>
+</header>
+
+<div class="container">
+  <!-- 官方QQ群板块（高亮显眼） -->
+  <div class="section" id="group">
+    <h2>官方交流群</h2>
+    <div class="qq-group-box">
+      <h3>官方QQ群号</h3>
+      <div class="qq-num">1094680135</div>
+      <p>欢迎加入交流工具使用、反馈BUG、获取更新通知</p>
+    </div>
+    <h3>入群须知</h3>
+    <ul>
+      <li>群内仅讨论ROC项目相关工具，禁止广告、无关闲聊、引战吵架</li>
+      <li>新版本更新、使用教程、问题解答都会在群内第一时间发布</li>
+      <li>遇到软件报错、功能疑问可直接在群内提问，作者会抽空回复</li>
+      <li>禁止发布违规内容、色情、暴力、破解资源，违者直接移出群聊</li>
+      <li>群内不收取任何费用，谨防冒充作者的诈骗人员</li>
+    </ul>
+  </div>
+
+<!-- 工具下载板块 -->
+<div class="section" id="download">
+  <h2>工具下载</h2>
+
+  <div class="tip-card">
+    <h3>📱 手机端版本</h3>
+    <p>适配安卓移动端，轻量化部署、本地运行、占用资源极低，适合手机日常使用。</p>
+    <p><strong>解压/访问密码：123</strong></p>
+    <a href="https://wwbdz.lanzoum.com/b01bjhnraf" target="_blank">
+      <button class="btn">下载手机端</button>
+    </a>
+  </div>
+
+  <div class="tip-card">
+    <h3>💻 电脑端版本</h3>
+    <p>适配Windows电脑端，功能完整、运行稳定，适配桌面端使用场景。</p>
+    <p><strong>解压/访问密码：123</strong></p>
+    <a href="https://wwbdz.lanzoum.com/b01bjhnrch" target="_blank">
+      <button class="btn">下载电脑端</button>
+    </a>
+  </div>
+</div>
+
+  <!-- 关于作者板块 -->
+  <div class="section" id="about">
+    <h2>关于工作室</h2>
+    <p>ROC项目为<strong>纯单人独立工作室</strong>，无团队、无外包、无合作人员。</p>
+    <p>项目从构思、UI设计、代码开发、素材处理、网页部署全部流程，<strong>仅依靠一部手机独立完成</strong>。</p>
+    <p>专注制作轻量化、纯净、无广告、无捆绑的免费实用工具，仅供个人学习交流。</p>
+  </div>
+
+  <!-- 免责声明板块 -->
+  <div class="section" id="rule">
+    <h2>免责声明</h2>
+    <p>1. ROC项目所有工具、源码、网页资源均为个人独立创作，仅供免费学习、交流、个人自用。</p>
+    <p>2. 本项目所有内容<strong>非商业用途</strong>，不参与任何盈利、收费服务。</p>
+    <p>3. 用户下载、使用本项目工具所产生的一切后果，由使用者自行承担，本工作室不承担任何连带责任。</p>
+    <p>4. 禁止恶意篡改、二次打包、倒卖本项目资源用于商业牟利。</p>
+    <p>5. 若内容存在侵权问题，请联系作者，将第一时间整改或删除相关内容。</p>
+    <p>6. 群内发言、工具使用产生的纠纷，均与本工作室无关，使用者自行负责。</p>
+    <p>7. 如果在任何软件内(任何意外，任何,任何),与本作者无关。</p>
+  </div>
+
+</div>
+
+<footer>
+© 2026 ROC项目 | 单人独立工作室 | 仅供学习交流使用 | 官方QQ群1094680135
+</footer>
+
+<script>
+// 菜单元素
+const openMenu = document.getElementById('openMenu');
+const closeMenu = document.getElementById('closeMenu');
+const sideMenu = document.getElementById('sideMenu');
+const mask = document.getElementById('mask');
+
+// 打开侧边菜单
+openMenu.onclick = ()=>{
+  sideMenu.classList.add('open');
+  mask.classList.add('show');
+}
+// 关闭侧边菜单
+function closeSideMenu(){
+  sideMenu.classList.remove('open');
+  mask.classList.remove('show');
+}
+closeMenu.onclick = closeSideMenu;
+mask.onclick = closeSideMenu;
+
+// 菜单跳转对应板块
+function goSection(id){
+  closeSideMenu();
+  document.getElementById(id).scrollIntoView({behavior:"smooth"});
+}
+</script>
+</body>
+</html>
