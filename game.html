@@ -1,0 +1,898 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>SkyBlock - 空岛生存</title>
+<style>
+  * { margin:0; padding:0; box-sizing:border-box; }
+  html, body { width:100%; height:100%; overflow:hidden; background:#0a0a1a; font-family: sans-serif; color:#fff; touch-action:none; user-select:none; -webkit-user-select:none; }
+  canvas { display:block; width:100%; height:100%; touch-action:none; }
+  #cross { position:fixed; left:50%; top:50%; transform:translate(-50%,-50%); width:20px; height:20px; pointer-events:none; z-index:5; }
+  #cross::before, #cross::after { content:""; position:absolute; background:#fff; opacity:.7; }
+  #cross::before { left:9px; top:0; width:2px; height:20px; }
+  #cross::after  { left:0; top:9px; width:20px; height:2px; }
+
+  /* === 我的世界同款热键栏 === */
+  #hotbar { position:fixed; bottom:10px; left:50%; transform:translateX(-50%); display:flex; gap:1px; z-index:10; background:rgba(0,0,0,0.5); padding:2px; border-radius:3px; border:2px solid #555; }
+  .slot { width:56px; height:56px; background:#8b8b8b; border:2px solid #373737; display:flex; align-items:center; justify-content:center; position:relative; image-rendering:pixelated; }
+  .slot.active { border-color:#ffffff; background:#a0a0a0; box-shadow:inset 0 0 0 1px rgba(255,255,255,0.5); }
+  .slot .icon { width:32px; height:32px; border:1px solid rgba(0,0,0,0.15); }
+  .slot .count { position:absolute; bottom:1px; right:2px; font-weight:bold; text-shadow:1px 1px 1px #000; font-size:12px; color:#fff; font-family:'Courier New',monospace; }
+  .slot .name { display:none; }
+  #hint { position:fixed; top:6px; left:50%; transform:translateX(-50%); background:rgba(0,0,0,0.6); padding:4px 12px; border-radius:5px; font-size:11px; z-index:10; max-width:90%; text-align:center; pointer-events:none; }
+
+  /* 摇杆 */
+  #joyWrap { position:fixed; left:15px; bottom:20px; width:130px; height:130px; z-index:20; pointer-events:none; }
+  #joyRing { position:absolute; width:110px; height:110px; border-radius:50%; left:10px; top:10px; background:rgba(0,0,0,0.35); border:3px solid rgba(255,255,255,0.5); }
+  #joyNub { position:absolute; width:46px; height:46px; border-radius:50%; left:42px; top:42px; background:rgba(255,255,255,0.75); border:3px solid #fff; }
+  #jumpBtn { position:fixed; right:25px; bottom:30px; width:70px; height:70px; border-radius:50%; background:rgba(139,69,19,0.8); border:4px solid #8B4513; color:#fff; font-size:13px; font-weight:bold; display:flex; align-items:center; justify-content:center; z-index:20; }
+  #actBtns { position:fixed; right:95px; bottom:120px; display:flex; gap:8px; z-index:20; }
+  .actBtn { width:60px; height:60px; border-radius:12px; background:rgba(0,0,0,0.55); border:2px solid #888; color:#fff; font-size:11px; font-weight:bold; display:flex; align-items:center; justify-content:center; }
+
+  /* === 我的世界同款背包界面 === */
+  #invPanel { position:fixed; left:50%; top:50%; transform:translate(-50%,-50%); background:#c6c6c6; padding:8px; border-radius:0; display:none; z-index:30; border:3px solid #555; box-shadow:inset 0 0 0 2px #fff, 0 0 0 3px #000; min-width:440px; max-width:92vw; }
+  #invPanel.show { display:block; }
+  #invPanel h3 { font-size:13px; text-align:center; color:#3f3f3f; font-family:'Courier New',monospace; font-weight:bold; margin-bottom:6px; }
+
+  #invBody { display:flex; gap:8px; align-items:flex-start; justify-content:center; }
+
+  /* 左 - 盔甲位 */
+  #armorCol { display:flex; flex-direction:column; gap:2px; padding-right:6px; border-right:2px solid #555; }
+  .armorSlot { width:56px; height:56px; background:#8b8b8b; border:2px solid #373737; display:flex; align-items:center; justify-content:center; font-size:10px; color:#555; font-family:'Courier New',monospace; text-align:center; line-height:1.2; }
+  .armorSlot .icon { width:28px; height:28px; background:#666; }
+
+  /* 中 - 背包格 + 快捷栏 */
+  #invCenter { display:flex; flex-direction:column; gap:1px; align-items:center; }
+  #invGrid { display:grid; grid-template-columns:repeat(9, 1fr); gap:1px; background:#8b8b8b; padding:2px; border:2px solid #373737; }
+  #invDivider { width:100%; height:4px; background:#555; margin:1px 0; border-radius:1px; }
+  #invHotbarGrid { display:grid; grid-template-columns:repeat(9, 1fr); gap:1px; background:#8b8b8b; padding:2px; border:2px solid #373737; }
+
+  /* 右 - 合成 2x2 */
+  #craftCol { display:flex; flex-direction:column; align-items:center; gap:4px; border-left:2px solid #555; padding-left:8px; min-width:130px; }
+  #craftCol h4 { font-size:12px; color:#3f3f3f; font-family:'Courier New',monospace; font-weight:bold; }
+  #craftGrid { display:grid; grid-template-columns:repeat(2, 1fr); gap:1px; background:#8b8b8b; padding:2px; border:2px solid #373737; }
+  #craftGrid .slot { width:48px; height:48px; }
+  #craftGrid .slot .icon { width:26px; height:26px; }
+  #craftResultWrap { display:flex; flex-direction:column; align-items:center; gap:3px; }
+  #craftArrow { font-size:18px; color:#3f3f3f; font-weight:bold; }
+  #craftResult { width:48px; height:48px; background:#8b8b8b; border:2px solid #373737; display:flex; align-items:center; justify-content:center; position:relative; }
+  #craftResult .icon { width:26px; height:26px; border:1px solid rgba(0,0,0,0.15); }
+  #craftResult .count { position:absolute; bottom:1px; right:2px; font-weight:bold; text-shadow:1px 1px 1px #000; font-size:10px; color:#fff; font-family:'Courier New',monospace; }
+  #craftBtn { padding:4px 10px; font-size:11px; background:#c6c6c6; color:#3f3f3f; border:2px solid #555; cursor:pointer; font-weight:bold; font-family:'Courier New',monospace; box-shadow:inset 0 0 0 2px #fff; }
+  #craftBtn:active { background:#a0a0a0; }
+
+  #invBtn { position:fixed; top:6px; right:6px; padding:4px 8px; font-size:11px; background:rgba(0,0,0,0.6); color:#fff; border:2px solid #888; z-index:10; font-family:'Courier New',monospace; }
+  #feedback { position:fixed; top:38px; left:50%; transform:translateX(-50%); background:rgba(0,0,0,0.75); padding:5px 10px; border-radius:4px; font-size:11px; display:none; z-index:15; pointer-events:none; }
+
+  /* 挖掘进度条 */
+  #miningBarOuter { position:fixed; left:50%; bottom:20%; transform:translateX(-50%); width:100px; height:10px; background:rgba(0,0,0,0.55); border-radius:5px; z-index:15; display:none; overflow:hidden; border:1px solid rgba(255,255,255,0.2); }
+  #miningBarFill { width:0%; height:100%; background:linear-gradient(90deg, #ffdb4d, #ff9800); border-radius:5px; transition:none; }
+  /* 坐标信息 */
+  #coordInfo { position:fixed; bottom:75px; left:50%; transform:translateX(-50%); font-size:10px; color:rgba(255,255,255,0.4); z-index:8; pointer-events:none; font-family:monospace; }
+
+  /* 横屏提示 */
+  #rotateHint { position:fixed; inset:0; background:rgba(0,0,0,0.95); z-index:100; display:none; align-items:center; justify-content:center; flex-direction:column; gap:15px; }
+  #rotateHint .icon { font-size:48px; animation:rot 1.5s ease-in-out infinite; }
+  #rotateHint .text { font-size:18px; color:#fff; text-align:center; padding:0 20px; }
+  @keyframes rot { 0%,100%{transform:rotate(0deg)} 50%{transform:rotate(90deg)} }
+
+  @media (orientation: portrait) {
+    #rotateHint { display:flex !important; }
+    #joyWrap, #jumpBtn, #actBtns, #hotbar, #invBtn, #cross, #hint, #miningBarOuter, #coordInfo, #invPanel, #feedback { display:none !important; }
+    canvas { display:none !important; }
+  }
+  @media (orientation: landscape) { #rotateHint { display:none !important; } }
+  @media (max-width:600px) {
+    #invPanel { min-width:auto; padding:4px; }
+    .slot { width:38px; height:38px; }
+    .slot .icon { width:22px; height:22px; }
+    .slot .count { font-size:9px; }
+    .armorSlot { width:38px; height:38px; }
+    .armorSlot .icon { width:18px; height:18px; }
+    #craftGrid .slot { width:38px; height:38px; }
+    #craftGrid .slot .icon { width:20px; height:20px; }
+    #craftResult { width:38px; height:38px; }
+    #craftResult .icon { width:20px; height:20px; }
+  }
+</style>
+</head>
+<body>
+<canvas id="c"></canvas>
+<div id="cross"></div>
+<div id="hint">按住挖 · 右键放 · WASD走 · 空格跳 · E背包</div>
+<div id="feedback"></div>
+<div id="miningBarOuter"><div id="miningBarFill"></div></div>
+<div id="coordInfo"></div>
+<button id="invBtn">背包 E</button>
+<div id="hotbar"></div>
+<div id="joyWrap"><div id="joyRing"></div><div id="joyNub"></div></div>
+<div id="actBtns">
+  <div class="actBtn" id="btnBreak">挖</div>
+  <div class="actBtn" id="btnPlace">放</div>
+</div>
+<div id="jumpBtn">跳跃</div>
+
+<div id="invPanel">
+  <h3>背包 (E 关闭)</h3>
+  <div id="invBody">
+    <!-- 左：盔甲位 -->
+    <div id="armorCol">
+      <div class="armorSlot"><div class="icon"></div></div>
+      <div class="armorSlot"><div class="icon"></div></div>
+      <div class="armorSlot"><div class="icon"></div></div>
+      <div class="armorSlot"><div class="icon"></div></div>
+    </div>
+    <!-- 中：背包格 3x9 + 快捷栏 1x9 -->
+    <div id="invCenter">
+      <div id="invGrid"></div>
+      <div id="invDivider"></div>
+      <div id="invHotbarGrid"></div>
+    </div>
+    <!-- 右：合成 2x2 -->
+    <div id="craftCol">
+      <h4>合成</h4>
+      <div id="craftGrid"></div>
+      <div id="craftArrow">→</div>
+      <div id="craftResultWrap">
+        <div id="craftResult"></div>
+        <button id="craftBtn">合成</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div id="rotateHint">
+  <div class="icon">📱</div>
+  <div class="text">请将设备旋转至横屏模式<br>Please rotate to landscape</div>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script>
+(function(){
+"use strict";
+const canvas = document.getElementById('c');
+const R = new THREE.WebGLRenderer({ canvas, antialias: false, powerPreference: 'high-performance' });
+R.setPixelRatio(Math.min(window.devicePixelRatio, 1.5));
+R.setSize(innerWidth, innerHeight);
+
+const scene = new THREE.Scene();
+// 虚空背景
+scene.background = new THREE.Color(0x0a0a1a);
+scene.fog = new THREE.Fog(0x0a0a1a, 30, 80);
+
+const camera = new THREE.PerspectiveCamera(72, innerWidth / innerHeight, 0.05, 200);
+
+scene.add(new THREE.AmbientLight(0xffffff, 0.70));
+const sun = new THREE.DirectionalLight(0xffeedd, 0.90);
+sun.position.set(30, 60, 30); scene.add(sun);
+
+// ===== 方块定义 =====
+const BLOCK = {
+  AIR:    { id: 0, name: '空气',   color: null,   solid: false, hardness: 0 },
+  GRASS: { id: 1, name: '草方块', color: 0x4caf50, solid: true, hardness: 0.7 },
+  DIRT:  { id: 2, name: '泥土',   color: 0x8b5a2b, solid: true, hardness: 0.6 },
+  STONE: { id: 3, name: '石头',   color: 0x888888, solid: true, hardness: 3.5 },
+  WOOD:  { id: 4, name: '原木',   color: 0x6b4423, solid: true, hardness: 1.8 },
+  LEAF:  { id: 5, name: '树叶',   color: 0x228b22, solid: true, hardness: 0.3 },
+  SAND:  { id: 6, name: '沙子',   color: 0xf4d03f, solid: true, hardness: 0.5 },
+  PLANKS:{ id: 7, name: '木板',   color: 0xc0a47d, solid: true, hardness: 1.5 },
+  COBBLE:{ id: 8, name: '圆石',   color: 0x7d7d7d, solid: true, hardness: 2.8 },
+  STICK: { id: 9, name: '木棍',   color: 0xa07843, solid: false, hardness: 0 },
+  PICK:  { id: 10, name: '木镐', color: 0xd4a063, solid: false, hardness: 0 },
+  SHOVEL:{ id: 11, name: '木铲', color: 0xc08050, solid: false, hardness: 0 },
+  IRON:  { id: 12, name: '铁锭', color: 0xcccccc, solid: false, hardness: 0 },
+  IRON_PICK:{ id:13, name:'铁镐',color: 0xaaaaaa, solid: false, hardness: 0 },
+  COAL:  { id: 14, name: '煤', color: 0x222222, solid: false, hardness: 0 },
+  TORCH: { id: 15, name: '火把', color: 0xffdd88, solid: false, hardness: 0 },
+  CRAFT: { id: 16, name: '工作台', color: 0xa06633, solid: true, hardness: 2.0 },
+  FURNACE:{id: 17, name: '熔炉', color: 0x666666, solid: true, hardness: 2.5 },
+};
+
+const BLOCK_BY_ID = {};
+for (const k in BLOCK) BLOCK_BY_ID[BLOCK[k].id] = BLOCK[k];
+
+// ===== 简单方块映射（直接存储） =====
+const world = new Map(); // key -> id
+const meshes = new Map(); // key -> mesh
+
+const matCache = {};
+function getMat(id) {
+  if (!matCache[id]) {
+    const b = BLOCK_BY_ID[id];
+    if (b && b.color != null) matCache[id] = new THREE.MeshLambertMaterial({ color: b.color });
+  }
+  return matCache[id];
+}
+const GEO = new THREE.BoxGeometry(1, 1, 1);
+
+function blockKey(x, y, z) { return x + ',' + y + ',' + z; }
+
+function getBlock(x, y, z) { return world.get(blockKey(x, y, z)) || 0; }
+
+function setBlock(x, y, z, id) {
+  const k = blockKey(x, y, z);
+  // 移除旧方块
+  if (meshes.has(k)) {
+    scene.remove(meshes.get(k));
+    meshes.delete(k);
+  }
+  if (id === 0) {
+    world.delete(k);
+    return true;
+  }
+  const b = BLOCK_BY_ID[id];
+  if (!b || !b.solid) return false;
+  const mesh = new THREE.Mesh(GEO, getMat(id));
+  mesh.position.set(x, y, z);
+  scene.add(mesh);
+  world.set(k, id);
+  meshes.set(k, mesh);
+  return true;
+}
+
+function removeBlock(x, y, z) {
+  const k = blockKey(x, y, z);
+  const id = world.get(k) || 0;
+  if (id === 0) return null;
+  if (meshes.has(k)) {
+    scene.remove(meshes.get(k));
+    meshes.delete(k);
+  }
+  world.delete(k);
+  return id;
+}
+
+// ===== 生成空岛 =====
+const ISLAND_RADIUS = 5; // 半径
+
+function genSkyIsland() {
+  const blocks = [];
+
+  for (let x = -ISLAND_RADIUS; x <= ISLAND_RADIUS; x++) {
+    for (let z = -ISLAND_RADIUS; z <= ISLAND_RADIUS; z++) {
+      const dist = Math.sqrt(x * x + z * z);
+      if (dist > ISLAND_RADIUS + 0.5) continue;
+
+      // 圆形岛
+      let radiusFade = 1;
+      if (dist > ISLAND_RADIUS - 1) radiusFade = (ISLAND_RADIUS + 0.5 - dist);
+
+      const baseH = Math.floor(radiusFade * 3) + 1; // 中心厚两边薄
+
+      // 顶部草地
+      const topY = baseH;
+      blocks.push({ x, y: topY, z, id: BLOCK.GRASS.id });
+
+      // 泥土层
+      for (let dy = 1; dy <= Math.min(2, baseH); dy++) {
+        blocks.push({ x, y: topY - dy, z, id: BLOCK.DIRT.id });
+      }
+
+      // 底层石头
+      blocks.push({ x, y: topY - 3, z, id: BLOCK.STONE.id });
+      if (baseH >= 4) blocks.push({ x, y: topY - 4, z, id: BLOCK.STONE.id });
+    }
+  }
+
+  // 树
+  const treeX = 2, treeZ = 2;
+  for (let ty = 0; ty < 4; ty++) {
+    const by = 3 + ty;
+    if (getBlock(treeX, by - 1, treeZ) !== 0) continue; // 检查树根位置
+    blocks.push({ x: treeX, y: by, z: treeZ, id: BLOCK.WOOD.id });
+  }
+  // 树叶
+  for (let dx = -2; dx <= 2; dx++) {
+    for (let dz = -2; dz <= 2; dz++) {
+      if (Math.abs(dx) + Math.abs(dz) <= 4) {
+        blocks.push({ x: treeX + dx, y: 7, z: treeZ + dz, id: BLOCK.LEAF.id });
+        if (Math.abs(dx) + Math.abs(dz) <= 3) {
+          blocks.push({ x: treeX + dx, y: 8, z: treeZ + dz, id: BLOCK.LEAF.id });
+        }
+      }
+    }
+  }
+  blocks.push({ x: treeX, y: 9, z: treeZ, id: BLOCK.LEAF.id });
+
+  // 第二棵树
+  const treeX2 = -3, treeZ2 = -2;
+  for (let ty = 0; ty < 3; ty++) {
+    const by = 2 + ty;
+    blocks.push({ x: treeX2, y: by, z: treeZ2, id: BLOCK.WOOD.id });
+  }
+  for (let dx = -2; dx <= 2; dx++) {
+    for (let dz = -2; dz <= 2; dz++) {
+      if (Math.abs(dx) + Math.abs(dz) <= 4) {
+        blocks.push({ x: treeX2 + dx, y: 5, z: treeZ2 + dz, id: BLOCK.LEAF.id });
+        if (Math.abs(dx) + Math.abs(dz) <= 3) {
+          blocks.push({ x: treeX2 + dx, y: 6, z: treeZ2 + dz, id: BLOCK.LEAF.id });
+        }
+      }
+    }
+  }
+  blocks.push({ x: treeX2, y: 7, z: treeZ2, id: BLOCK.LEAF.id });
+
+  // 放置所有方块
+  for (const b of blocks) {
+    setBlock(b.x, b.y, b.z, b.id);
+  }
+}
+
+genSkyIsland();
+
+// ===== 玩家 =====
+const PLAYER_W = 0.6;
+const PLAYER_H = 1.8;
+const EYE = 1.62;
+
+let px = 0, py = 6, pz = 0;
+let vy = 0;
+let grounded = false;
+let yaw = 0, pitch = 0;
+
+// 寻找出生点
+(function findSpawn() {
+  for (let y = 20; y > -5; y--) {
+    if (getBlock(0, y, 0) !== 0) {
+      py = y + 1 + PLAYER_H / 2;
+      return;
+    }
+  }
+  py = 6;
+})();
+
+function collidesAt(x, y, z) {
+  const hw = PLAYER_W / 2, hh = PLAYER_H / 2;
+  const minX = x - hw, maxX = x + hw;
+  const minY = y - hh, maxY = y + hh;
+  const minZ = z - hw, maxZ = z + hw;
+  const x0 = Math.floor(minX) - 1, x1 = Math.floor(maxX) + 1;
+  const z0 = Math.floor(minZ) - 1, z1 = Math.floor(maxZ) + 1;
+  const y0 = Math.floor(minY) - 1, y1 = Math.floor(maxY) + 1;
+  for (let bx = x0; bx <= x1; bx++)
+  for (let by = y0; by <= y1; by++)
+  for (let bz = z0; bz <= z1; bz++) {
+    const id = getBlock(bx, by, bz);
+    if (id === 0) continue;
+    const b = BLOCK_BY_ID[id];
+    if (!b || !b.solid) continue;
+    if (maxX > bx - 0.5 && minX < bx + 0.5 &&
+        maxY > by - 0.5 && minY < by + 0.5 &&
+        maxZ > bz - 0.5 && minZ < bz + 0.5) return true;
+  }
+  return false;
+}
+
+const GRAVITY = -26;
+const JUMP_V = 8.2;
+const WALK_SPD = 4.6;
+
+function moveAxis(dx, dy, dz) {
+  if (dx !== 0) {
+    if (!collidesAt(px + dx, py, pz)) px += dx;
+    else if (grounded && !collidesAt(px + dx, py + 1, pz) && !collidesAt(px, py + 1, pz)) {
+      px += dx; py += 1; vy = 0;
+    }
+  }
+  if (dz !== 0) {
+    if (!collidesAt(px, py, pz + dz)) pz += dz;
+    else if (grounded && !collidesAt(px, py + 1, pz + dz) && !collidesAt(px, py + 1, pz)) {
+      pz += dz; py += 1; vy = 0;
+    }
+  }
+  if (dy !== 0) {
+    if (!collidesAt(px, py + dy, pz)) { py += dy; if (dy < 0) grounded = false; }
+    else { if (dy < 0) grounded = true; vy = 0; }
+  }
+}
+
+// ===== 键盘 =====
+const keys = {};
+window.addEventListener('keydown', e => { keys[e.code] = true; if (e.code === 'Space') e.preventDefault(); });
+window.addEventListener('keyup', e => { keys[e.code] = false; });
+
+// ===== 鼠标/视角 =====
+let mouseDown = false, lastMX = 0, lastMY = 0;
+canvas.addEventListener('mousedown', e => {
+  mouseDown = true; lastMX = e.clientX; lastMY = e.clientY;
+  try { if (canvas.requestPointerLock) canvas.requestPointerLock(); } catch (_) {}
+  if (e.button === 0) { startMining(); }
+});
+document.addEventListener('mousemove', e => {
+  if (document.pointerLockElement === canvas) {
+    yaw -= e.movementX * 0.0025;
+    pitch -= e.movementY * 0.0025;
+    pitch = Math.max(-1.4, Math.min(1.4, pitch));
+  } else if (mouseDown) {
+    yaw -= (e.clientX - lastMX) * 0.004;
+    pitch -= (e.clientY - lastMY) * 0.004;
+    pitch = Math.max(-1.4, Math.min(1.4, pitch));
+    lastMX = e.clientX; lastMY = e.clientY;
+  }
+});
+document.addEventListener('mouseup', e => { if (e.button === 0) { mouseDown = false; stopMining(); } });
+canvas.addEventListener('contextmenu', e => { e.preventDefault(); tryPlace(); });
+canvas.addEventListener('mousedown', e => { if (e.button === 2) tryPlace(); });
+
+// ===== 射线拾取 =====
+const raycaster = new THREE.Raycaster();
+function rayPick() {
+  raycaster.setFromCamera(new THREE.Vector2(0, 0), camera);
+  raycaster.near = 0.05;
+  raycaster.far = 6;
+  const allMeshes = [];
+  for (const [, mesh] of meshes) allMeshes.push(mesh);
+  if (!allMeshes.length) return null;
+  const hits = raycaster.intersectObjects(allMeshes, false);
+  if (!hits.length) return null;
+  const hit = hits[0];
+  const face = hit.face;
+  const normal = face.normal.clone();
+  const m = hit.object.matrixWorld;
+  normal.transformDirection(m);
+  normal.set(Math.round(normal.x), Math.round(normal.y), Math.round(normal.z));
+  const wp = hit.point;
+  const bx = Math.round(wp.x - normal.x * 0.5);
+  const by = Math.round(wp.y - normal.y * 0.5);
+  const bz = Math.round(wp.z - normal.z * 0.5);
+  return { bx, by, bz, nx: normal.x, ny: normal.y, nz: normal.z };
+}
+
+// ===== 挖掘延迟 =====
+let isMining = false;
+let miningTarget = null;
+let miningProgress = 0;
+let miningDuration = 0;
+const miningBarOuter = document.getElementById('miningBarOuter');
+const miningBarFill = document.getElementById('miningBarFill');
+
+function startMining() {
+  if (invPanel.classList.contains('show')) return;
+  const r = rayPick();
+  if (!r) return;
+  const bid = getBlock(r.bx, r.by, r.bz);
+  if (bid === 0) return;
+  const bd = BLOCK_BY_ID[bid];
+  if (!bd || !bd.solid) return;
+  isMining = true;
+  miningTarget = { bx: r.bx, by: r.by, bz: r.bz };
+  miningProgress = 0;
+  miningDuration = bd.hardness * 1.0;
+  miningBarFill.style.width = '0%';
+  miningBarOuter.style.display = 'block';
+}
+
+function stopMining() {
+  isMining = false;
+  miningTarget = null;
+  miningProgress = 0;
+  miningBarOuter.style.display = 'none';
+}
+
+function updateMining(dt) {
+  if (!isMining) return;
+  const bid = getBlock(miningTarget.bx, miningTarget.by, miningTarget.bz);
+  if (bid === 0) { stopMining(); return; }
+  const r = rayPick();
+  if (!r || r.bx !== miningTarget.bx || r.by !== miningTarget.by || r.bz !== miningTarget.bz) { stopMining(); return; }
+  miningProgress += dt;
+  const pct = Math.min(miningProgress / miningDuration * 100, 100);
+  miningBarFill.style.width = pct + '%';
+  if (miningProgress >= miningDuration) {
+    const id = removeBlock(miningTarget.bx, miningTarget.by, miningTarget.bz);
+    if (id) addToInventory(id, 1);
+    stopMining();
+  }
+}
+
+function tryBreak() {
+  const r = rayPick();
+  if (!r) return;
+  const id = removeBlock(r.bx, r.by, r.bz);
+  if (id) addToInventory(id, 1);
+}
+
+function tryPlace() {
+  const r = rayPick();
+  if (!r) return;
+  const current = hotbar[hotbarIdx];
+  if (!current) return;
+  const bid = BLOCK_BY_ID[current.id];
+  if (!bid || !bid.solid) return;
+  const nx = r.bx + r.nx, ny = r.by + r.ny, nz = r.bz + r.nz;
+  const hw = PLAYER_W / 2, hh = PLAYER_H / 2;
+  if (nx + 0.5 > px - hw && nx - 0.5 < px + hw &&
+      ny + 0.5 > py - hh && ny - 0.5 < py + hh &&
+      nz + 0.5 > pz - hw && nz - 0.5 < pz + hw) return;
+  if (setBlock(nx, ny, nz, current.id)) {
+    current.count--;
+    if (current.count <= 0) hotbar[hotbarIdx] = null;
+    refreshHotbarUI();
+  }
+}
+
+// ===== 物品栏 =====
+const hotbar = new Array(9).fill(null);
+let hotbarIdx = 0;
+hotbar[0] = { id: BLOCK.DIRT.id, count: 24 };
+hotbar[1] = { id: BLOCK.STONE.id, count: 12 };
+hotbar[2] = { id: BLOCK.WOOD.id, count: 8 };
+hotbar[3] = { id: BLOCK.PLANKS.id, count: 8 };
+hotbar[4] = { id: BLOCK.LEAF.id, count: 4 };
+hotbar[5] = { id: BLOCK.COBBLE.id, count: 4 };
+
+const inv = new Array(27).fill(null);
+inv[0] = { id: BLOCK.SAND.id, count: 8 };
+inv[1] = { id: BLOCK.STICK.id, count: 12 };
+inv[2] = { id: BLOCK.CRAFT.id, count: 4 };
+
+function addToInventory(id, n) {
+  for (let i = 0; i < 9; i++) {
+    if (hotbar[i] && hotbar[i].id === id) { hotbar[i].count += n; refreshHotbarUI(); return true; }
+  }
+  for (let i = 0; i < inv.length; i++) {
+    if (inv[i] && inv[i].id === id) { inv[i].count += n; refreshInvUI(); return true; }
+  }
+  for (let i = 0; i < 9; i++) {
+    if (!hotbar[i]) { hotbar[i] = { id, count: n }; refreshHotbarUI(); return true; }
+  }
+  for (let i = 0; i < inv.length; i++) {
+    if (!inv[i]) { inv[i] = { id, count: n }; refreshInvUI(); return true; }
+  }
+  return false;
+}
+
+// ===== 2x2 合成配方 =====
+const recipes2x2 = [
+  // 原木 → 木板
+  { grid: [4,0, 0,0], result: { id: BLOCK.PLANKS.id, count: 4 } },
+  // 木板 → 木棍（竖着放两个）
+  { grid: [7,0, 7,0], result: { id: BLOCK.STICK.id, count: 4 } },
+  // 木板 + 木棍 → 木镐
+  { grid: [7,7, 9,0], result: { id: BLOCK.PICK.id, count: 1 } },
+  // 木板 → 木铲
+  { grid: [7,0, 9,0], result: { id: BLOCK.SHOVEL.id, count: 1 } },
+  // 石头 → 圆石
+  { grid: [3,0, 0,0], result: { id: BLOCK.COBBLE.id, count: 1 } },
+  // 沙子
+  { grid: [6,0, 0,0], result: { id: BLOCK.SAND.id, count: 1 } },
+  // 工作台
+  { grid: [7,7, 7,7], result: { id: BLOCK.CRAFT.id, count: 1 } },
+  // 圆石 → 熔炉
+  { grid: [8,8, 8,8], result: { id: BLOCK.FURNACE.id, count: 1 } },
+  // 铁锭 + 木棍 → 铁镐
+  { grid: [12,12, 9,0], result: { id: BLOCK.IRON_PICK.id, count: 1 } },
+];
+
+let craft2x2 = new Array(4).fill(null);
+let craftResult = null;
+
+// ===== UI =====
+const hotbarEl = document.getElementById('hotbar');
+const invEl = document.getElementById('invGrid');
+const invHotbarEl = document.getElementById('invHotbarGrid');
+const craftEl = document.getElementById('craftGrid');
+const craftResultEl = document.getElementById('craftResult');
+const invPanel = document.getElementById('invPanel');
+const craftBtn = document.getElementById('craftBtn');
+const invBtn = document.getElementById('invBtn');
+const feedbackEl = document.getElementById('feedback');
+const coordInfoEl = document.getElementById('coordInfo');
+
+function showFeedback(msg) {
+  feedbackEl.textContent = msg;
+  feedbackEl.style.display = 'block';
+  clearTimeout(showFeedback._t);
+  showFeedback._t = setTimeout(() => { feedbackEl.style.display = 'none'; }, 1500);
+}
+
+function blockIconColor(id) {
+  const b = BLOCK_BY_ID[id];
+  if (!b || b.color == null) return '#666';
+  return '#' + b.color.toString(16).padStart(6, '0');
+}
+
+function slotHTML(cell) {
+  return '<div class="icon" style="background:' + (cell ? blockIconColor(cell.id) : '#6b6b6b') + '"></div>' +
+    (cell && cell.count > 1 ? ('<div class="count">' + cell.count + '</div>') : '');
+}
+
+function refreshHotbarUI() {
+  hotbarEl.innerHTML = '';
+  for (let i = 0; i < 9; i++) {
+    const cell = hotbar[i];
+    const s = document.createElement('div');
+    s.className = 'slot' + (i === hotbarIdx ? ' active' : '');
+    s.innerHTML = slotHTML(cell);
+    s.onclick = () => { hotbarIdx = i; refreshHotbarUI(); };
+    hotbarEl.appendChild(s);
+  }
+}
+
+function refreshInvUI() {
+  // 主背包 3x9
+  invEl.innerHTML = '';
+  for (let i = 0; i < 27; i++) {
+    const cell = inv[i];
+    const s = document.createElement('div');
+    s.className = 'slot';
+    s.innerHTML = slotHTML(cell);
+    s.onclick = (function(idx) { return function() {
+      const c = inv[idx];
+      if (!c) return;
+      let merged = false;
+      for (let h = 0; h < 9; h++) {
+        if (hotbar[h] && hotbar[h].id === c.id) { hotbar[h].count += c.count; inv[idx] = null; merged = true; break; }
+      }
+      if (!merged) for (let h = 0; h < 9; h++) {
+        if (!hotbar[h]) { hotbar[h] = c; inv[idx] = null; merged = true; break; }
+      }
+      if (!merged) {
+        const cur = hotbar[hotbarIdx];
+        hotbar[hotbarIdx] = c;
+        inv[idx] = cur;
+      }
+      refreshHotbarUI();
+      refreshInvUI();
+    };})(i);
+    invEl.appendChild(s);
+  }
+
+  // 背包内的快捷栏 1x9（与热键栏同步）
+  invHotbarEl.innerHTML = '';
+  for (let i = 0; i < 9; i++) {
+    const cell = hotbar[i];
+    const s = document.createElement('div');
+    s.className = 'slot' + (i === hotbarIdx ? ' active' : '');
+    s.innerHTML = slotHTML(cell);
+    s.onclick = (function(idx) { return function() {
+      hotbarIdx = idx;
+      refreshHotbarUI();
+      refreshInvUI();
+    };})(i);
+    invHotbarEl.appendChild(s);
+  }
+}
+
+function refreshCraftUI() {
+  craftEl.innerHTML = '';
+  for (let i = 0; i < 4; i++) {
+    const cell = craft2x2[i];
+    const s = document.createElement('div');
+    s.className = 'slot';
+    s.innerHTML = slotHTML(cell);
+    s.onclick = (function(idx) { return function() {
+      if (craft2x2[idx]) {
+        addToInventory(craft2x2[idx].id, craft2x2[idx].count || 1);
+        craft2x2[idx] = null;
+      } else {
+        const cur = hotbar[hotbarIdx];
+        if (cur) {
+          craft2x2[idx] = { id: cur.id, count: 1 };
+          cur.count--;
+          if (cur.count <= 0) hotbar[hotbarIdx] = null;
+        }
+      }
+      refreshHotbarUI();
+      refreshInvUI();
+      refreshCraftUI();
+    };})(i);
+    craftEl.appendChild(s);
+  }
+
+  craftResultEl.innerHTML = '';
+  const res = matchRecipe2x2();
+  if (res) {
+    const ic = document.createElement('div');
+    ic.className = 'icon';
+    ic.style.cssText = 'width:26px;height:26px;background:' + blockIconColor(res.id);
+    craftResultEl.appendChild(ic);
+    const c = document.createElement('div');
+    c.className = 'count'; c.textContent = res.count;
+    craftResultEl.appendChild(c);
+  }
+  craftResult = res;
+}
+
+function matchRecipe2x2() {
+  const g = craft2x2.map(c => c ? c.id : 0);
+  for (const r of recipes2x2) {
+    let ok = true;
+    for (let i = 0; i < 4; i++) if (r.grid[i] !== g[i]) { ok = false; break; }
+    if (ok) return { id: r.result.id, count: r.result.count };
+  }
+  return null;
+}
+
+craftBtn.onclick = () => {
+  const res = matchRecipe2x2();
+  if (!res) { showFeedback('没有匹配的配方'); return; }
+  for (let i = 0; i < 4; i++) {
+    if (craft2x2[i]) { craft2x2[i].count--; if (craft2x2[i].count <= 0) craft2x2[i] = null; }
+  }
+  addToInventory(res.id, res.count);
+  showFeedback('合成成功! ' + (BLOCK_BY_ID[res.id] ? BLOCK_BY_ID[res.id].name : ''));
+  refreshHotbarUI();
+  refreshInvUI();
+  refreshCraftUI();
+};
+
+function toggleInv(open) {
+  if (open) { invPanel.classList.add('show'); stopMining(); }
+  else { invPanel.classList.remove('show'); }
+}
+invBtn.onclick = () => toggleInv(!invPanel.classList.contains('show'));
+
+document.addEventListener('keydown', e => {
+  if (e.code >= 'Digit1' && e.code <= 'Digit9') hotbarIdx = parseInt(e.code.charAt(5)) - 1;
+  if (e.code === 'KeyE') { toggleInv(!invPanel.classList.contains('show')); }
+  refreshHotbarUI();
+});
+
+// ===== 摇杆（已反转） =====
+const joyWrap = document.getElementById('joyWrap');
+const joyNub = document.getElementById('joyNub');
+let joyTid = -1;
+let joyX = 0, joyY = 0;
+
+function inJoy(x, y) {
+  const r = joyWrap.getBoundingClientRect();
+  return x >= r.left && x <= r.right && y >= r.top && y <= r.bottom;
+}
+
+document.addEventListener('touchstart', e => {
+  for (let i = 0; i < e.changedTouches.length; i++) {
+    const t = e.changedTouches[i];
+    if (joyTid === -1 && inJoy(t.clientX, t.clientY)) joyTid = t.identifier;
+  }
+}, { passive: false });
+
+document.addEventListener('touchmove', e => {
+  for (let i = 0; i < e.changedTouches.length; i++) {
+    const t = e.changedTouches[i];
+    if (t.identifier === joyTid) {
+      e.preventDefault();
+      const r = joyWrap.getBoundingClientRect();
+      const ox = r.left + 65, oy = r.top + 65;
+      let dx = t.clientX - ox, dy = t.clientY - oy;
+      const d = Math.hypot(dx, dy);
+      const mr = 45;
+      if (d > mr) { dx = dx / d * mr; dy = dy / d * mr; }
+      joyNub.style.left = (42 + dx) + 'px';
+      joyNub.style.top = (42 + dy) + 'px';
+      joyX = (dx / mr); joyY = -(dy / mr); // X保持正常，Y反转(前→后)
+    }
+  }
+}, { passive: false });
+
+document.addEventListener('touchend', e => {
+  for (let i = 0; i < e.changedTouches.length; i++) {
+    if (e.changedTouches[i].identifier === joyTid) { joyTid = -1; joyX = 0; joyY = 0; joyNub.style.left = '42px'; joyNub.style.top = '42px'; }
+  }
+}, { passive: false });
+
+// ===== 触摸视角 =====
+let rotTid = -1, lastRX = 0, lastRY = 0;
+document.addEventListener('touchstart', e => {
+  for (let i = 0; i < e.changedTouches.length; i++) {
+    const t = e.changedTouches[i];
+    if (!inJoy(t.clientX, t.clientY) && t.clientX > innerWidth * 0.35 && t.identifier !== joyTid && rotTid === -1) {
+      rotTid = t.identifier; lastRX = t.clientX; lastRY = t.clientY;
+    }
+  }
+}, { passive: false });
+document.addEventListener('touchmove', e => {
+  for (let i = 0; i < e.changedTouches.length; i++) {
+    const t = e.changedTouches[i];
+    if (t.identifier === rotTid) {
+      e.preventDefault();
+      yaw -= (t.clientX - lastRX) * 0.006;
+      pitch -= (t.clientY - lastRY) * 0.006;
+      pitch = Math.max(-1.4, Math.min(1.4, pitch));
+      lastRX = t.clientX; lastRY = t.clientY;
+    }
+  }
+}, { passive: false });
+document.addEventListener('touchend', e => {
+  for (let i = 0; i < e.changedTouches.length; i++) {
+    if (e.changedTouches[i].identifier === rotTid) rotTid = -1;
+  }
+}, { passive: false });
+
+document.getElementById('jumpBtn').addEventListener('touchstart', e => { e.preventDefault(); if (grounded) { vy = JUMP_V; grounded = false; } }, { passive: false });
+document.getElementById('jumpBtn').addEventListener('mousedown', e => { e.preventDefault(); if (grounded) { vy = JUMP_V; grounded = false; } });
+
+const breakBtn = document.getElementById('btnBreak');
+breakBtn.addEventListener('touchstart', e => { e.preventDefault(); startMining(); }, { passive: false });
+breakBtn.addEventListener('touchend', e => { e.preventDefault(); stopMining(); }, { passive: false });
+breakBtn.addEventListener('touchcancel', e => { stopMining(); }, { passive: false });
+
+const placeBtn = document.getElementById('btnPlace');
+placeBtn.addEventListener('click', e => { e.preventDefault(); tryPlace(); });
+placeBtn.addEventListener('touchstart', e => { e.preventDefault(); tryPlace(); }, { passive: false });
+
+// ===== 强制横屏 =====
+function requestLandscape() {
+  try {
+    if (screen.orientation && screen.orientation.lock) {
+      screen.orientation.lock('landscape').catch(function() {});
+    }
+  } catch(e) {}
+}
+requestLandscape();
+
+refreshHotbarUI();
+refreshInvUI();
+refreshCraftUI();
+
+// ===== 主循环 =====
+let last = performance.now();
+let frameCount = 0;
+
+function loop() {
+  requestAnimationFrame(loop);
+  const dt = Math.min((performance.now() - last) / 1000, 0.05);
+  last = performance.now();
+
+  // 掉落虚空回城
+  if (py < -20) {
+    px = 0; pz = 0;
+    for (let y = 20; y > -5; y--) {
+      if (getBlock(0, y, 0) !== 0) { py = y + 1 + PLAYER_H / 2; vy = 0; grounded = false; break; }
+    }
+  }
+
+  vy += GRAVITY * dt;
+
+  let ix = 0, iy = 0;
+  if (keys['KeyW'] || keys['ArrowUp']) iy -= 1;
+  if (keys['KeyS'] || keys['ArrowDown']) iy += 1;
+  if (keys['KeyA'] || keys['ArrowLeft']) ix -= 1;
+  if (keys['KeyD'] || keys['ArrowRight']) ix += 1;
+  if (Math.abs(joyX) > 0.15 || Math.abs(joyY) > 0.15) { ix += joyX; iy += joyY; }
+  if (keys['Space'] && grounded) { vy = JUMP_V; grounded = false; }
+
+  const sy = Math.sin(yaw), cy = Math.cos(yaw);
+  let moveX = sy * (-iy) + cy * ix;
+  let moveZ = cy * (-iy) - sy * ix;
+  const len = Math.hypot(moveX, moveZ);
+  if (len > 0.001) { moveX /= len; moveZ /= len; }
+  const sp = WALK_SPD * dt;
+  moveAxis(moveX * sp, 0, 0);
+  moveAxis(0, 0, moveZ * sp);
+  moveAxis(0, vy * dt, 0);
+
+  updateMining(dt);
+
+  camera.position.set(px, py - PLAYER_H / 2 + EYE, pz);
+  camera.rotation.order = 'YXZ';
+  camera.rotation.y = yaw;
+  camera.rotation.x = pitch;
+
+  if (frameCount % 30 === 0) {
+    coordInfoEl.textContent = `XYZ: ${px.toFixed(1)} / ${(py - PLAYER_H/2).toFixed(1)} / ${pz.toFixed(1)}`;
+  }
+  frameCount++;
+
+  R.render(scene, camera);
+}
+loop();
+
+addEventListener('resize', () => {
+  camera.aspect = innerWidth / innerHeight;
+  camera.updateProjectionMatrix();
+  R.setSize(innerWidth, innerHeight);
+});
+addEventListener('orientationchange', () => {
+  setTimeout(() => {
+    camera.aspect = innerWidth / innerHeight;
+    camera.updateProjectionMatrix();
+    R.setSize(innerWidth, innerHeight);
+  }, 300);
+});
+
+})();
+</script>
+</body>
+</html>

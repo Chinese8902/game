@@ -1,0 +1,1990 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title data-lang="appTitle">本地 AI 智能体</title>
+<style>
+/* ========== 全局重置 ========== */
+*{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+html,body{height:100%;font-family:system-ui,-apple-system,"PingFang SC","Microsoft YaHei",sans-serif;overflow:hidden}
+input,textarea,select{outline:none;border:none;background:transparent;font-family:inherit;color:inherit}
+button{border:none;background:none;cursor:pointer;font-family:inherit;color:inherit}
+.hidden{display:none!important}
+
+/* ========== 主题变量 ========== */
+:root{
+  color-scheme: light dark;
+  --bg:#0f172a;
+  --card:rgba(30,41,59,0.7);
+  --card-solid:#1e293b;
+  --input:rgba(30,41,59,0.8);
+  --primary:#6366f1;
+  --primary-gradient:linear-gradient(135deg,#6366f1,#8b5cf6);
+  --accent:#ec4899;
+  --accent-gradient:linear-gradient(135deg,#8b5cf6,#ec4899);
+  --text:#f1f5f9;
+  --text2:#94a3b8;
+  --border:rgba(148,163,184,0.15);
+  --shadow:0 8px 32px rgba(0,0,0,0.3);
+  --glass-blur:blur(20px) saturate(180%);
+  --bubble-radius:18px;
+  --global-radius:24px;
+}
+body.light{
+  --bg:#f8fafc !important;
+  --card:rgba(255,255,255,0.9) !important;
+  --card-solid:#ffffff !important;
+  --input:#f1f5f9 !important;
+  --text:#0f172a !important;
+  --text2:#64748b !important;
+  --border:rgba(148,163,184,0.2) !important;
+  background:#f8fafc !important;
+  color:#0f172a !important;
+}
+body.dark.amoled{
+  --bg:#000000 !important;
+  --card-solid:#000000 !important;
+  --border:rgba(255,255,255,0.1) !important;
+  background:#000 !important;
+}
+
+/* ========== 通用组件 ========== */
+.scrollbar::-webkit-scrollbar{width:4px}
+.scrollbar::-webkit-scrollbar-thumb{background:rgba(99,102,241,0.3);border-radius:2px}
+
+.btn-primary{background:var(--primary-gradient);color:#fff;border-radius:16px;padding:12px 16px;font-size:15px;font-weight:600;min-height:44px;pointer-events:auto}
+.btn-primary:active{transform:scale(.97);opacity:.9}
+.btn-primary:disabled{opacity:.5;cursor:not-allowed;pointer-events:none}
+.btn-accent{background:var(--accent-gradient);color:#fff;border-radius:16px;padding:12px 16px;font-size:15px;font-weight:600;min-height:44px;pointer-events:auto}
+.btn-cancel{background:var(--input);color:var(--text);border-radius:12px;padding:10px 14px;font-size:14px;min-height:44px;pointer-events:auto}
+.danger-btn{background:linear-gradient(135deg,#ef4444,#f87171);color:#fff;padding:10px 14px;border-radius:12px;font-size:14px;font-weight:500;min-height:44px;pointer-events:auto}
+
+.icon-btn{
+  width:44px;height:44px;border-radius:50%;
+  background:rgba(255,255,255,.08);
+  display:flex;align-items:center;justify-content:center;
+  pointer-events:auto;
+  position:relative;
+  z-index:10;
+}
+.icon-btn:active{background:rgba(255,255,255,.15);transform:scale(.95)}
+body.light .icon-btn{background:rgba(0,0,0,.06) !important}
+
+/* ========== 页面容器 ========== */
+.page{position:fixed;inset:0;display:flex;flex-direction:column;background:var(--bg);transition:transform .35s cubic-bezier(.4,0,.2,1);z-index:1}
+.page-left{transform:translateX(-100%)}
+.page-right{transform:translateX(100%)}
+.page-active{transform:translateX(0);z-index:10}
+
+/* ========== 首页 ========== */
+#homePage .header{padding:24px 20px 12px;display:flex;align-items:center;justify-content:space-between}
+#homePage .header h1{font-size:30px;font-weight:800;background:var(--primary-gradient);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text}
+.agent-list{flex:1;overflow-y:auto;padding:10px 20px 100px}
+.agent-item{
+  padding:16px;border-radius:20px;
+  background:var(--card);backdrop-filter:var(--glass-blur);
+  display:flex;align-items:center;gap:14px;
+  margin-bottom:12px;border:1px solid var(--border);
+  pointer-events:auto;
+}
+.agent-avatar{width:52px;height:52px;border-radius:16px;background:var(--primary-gradient);display:flex;align-items:center;justify-content:center;font-size:20px;font-weight:bold;color:#fff;flex-shrink:0}
+.agent-info{flex:1;min-width:0}
+.agent-name{font-size:17px;font-weight:600;margin-bottom:2px}
+.agent-desc{font-size:13px;color:var(--text2);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.agent-actions{display:flex;gap:6px;flex-shrink:0}
+
+/* 悬浮按钮 */
+.fab-wrap{position:fixed;right:20px;bottom:28px;z-index:20;display:flex;flex-direction:column;align-items:flex-end;gap:12px}
+.fab-main{width:62px;height:62px;border-radius:50%;background:var(--primary-gradient);display:flex;align-items:center;justify-content:center;color:#fff;pointer-events:auto}
+.fab-sub{display:flex;flex-direction:column;gap:12px;align-items:flex-end;opacity:0;transform:translateY(16px);pointer-events:none;transition:all .25s ease}
+.fab-sub.open{opacity:1;transform:translateY(0);pointer-events:auto}
+.fab-row{display:flex;align-items:center;gap:10px}
+.fab-row span{background:var(--card);backdrop-filter:var(--glass-blur);padding:6px 12px;border-radius:12px;font-size:13px;box-shadow:var(--shadow);border:1px solid var(--border)}
+.fab-icon{width:52px;height:52px;border-radius:50%;display:flex;align-items:center;justify-content:center;color:#fff;pointer-events:auto}
+.fab-icon.new{background:var(--primary-gradient)}
+.fab-icon.draw{background:var(--accent-gradient)}
+
+/* ========== 聊天页 ========== */
+.chat-header{height:64px;padding:0 16px;display:flex;align-items:center;gap:12px;border-bottom:1px solid var(--border);background:var(--card);backdrop-filter:var(--glass-blur);flex-shrink:0}
+.chat-title{font-size:17px;font-weight:600}
+.chat-model{font-size:12px;color:var(--text2);cursor:pointer;pointer-events:auto}
+.chat-body{flex:1;overflow-y:auto;padding:16px;background:var(--bg)}
+.msg{margin-bottom:14px;display:flex}
+.msg.user{justify-content:flex-end}
+.msg-bubble{max-width:78%;padding:12px 16px;border-radius:var(--bubble-radius);font-size:15px;line-height:1.6;word-break:break-word}
+.msg.user .msg-bubble{background:var(--primary-gradient);color:#fff;border-bottom-right-radius:6px}
+.msg.ai .msg-bubble{background:var(--card);backdrop-filter:var(--glass-blur);border:1px solid var(--border);border-bottom-left-radius:6px}
+.msg-time{font-size:11px;color:var(--text2);margin-top:4px;opacity:.7}
+
+.chat-input-bar{padding:12px 16px;border-top:1px solid var(--border);background:var(--card);backdrop-filter:var(--glass-blur);flex-shrink:0;position:relative}
+.word-count{position:absolute;top:2px;right:20px;font-size:11px;color:var(--text2);opacity:.7}
+.input-row{display:flex;align-items:flex-end;gap:10px;background:var(--input);border-radius:20px;padding:10px 12px;border:1px solid var(--border)}
+.plus-btn{width:40px;height:40px;border-radius:50%;background:var(--primary-gradient);display:flex;align-items:center;justify-content:center;color:#fff;flex-shrink:0;pointer-events:auto}
+#chatInput{flex:1;resize:none;max-height:120px;line-height:1.5;background:transparent;color:var(--text);font-size:15px}
+.send-btn{width:40px;height:40px;border-radius:50%;background:var(--primary-gradient);display:flex;align-items:center;justify-content:center;color:#fff;flex-shrink:0;pointer-events:auto}
+
+/* 抽屉 */
+.drawer-mask{position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:40;opacity:0;pointer-events:none;transition:opacity .3s}
+.drawer-mask.open{opacity:1;pointer-events:auto}
+.drawer{
+  position:fixed;left:0;top:0;bottom:0;
+  width:80%;max-width:320px;
+  background:var(--bg);
+  z-index:50;
+  transform:translateX(-100%);
+  transition:transform .3s ease;
+  display:flex;flex-direction:column;
+  border-right:1px solid var(--border);
+  pointer-events:auto;
+}
+.drawer.open{transform:translateX(0)}
+.drawer-header{padding:20px 16px;display:flex;align-items:center;justify-content:space-between;border-bottom:1px solid var(--border)}
+.drawer-header h2{font-size:22px;font-weight:700}
+.session-list{flex:1;overflow-y:auto;padding:0 16px}
+.session-item{
+  padding:12px 14px;border-radius:14px;
+  display:flex;align-items:center;justify-content:space-between;
+  margin-bottom:8px;pointer-events:auto;
+}
+.session-item.active{background:var(--primary-gradient);color:#fff}
+
+/* ========== 弹窗通用（重点修复层级） ========== */
+.modal-mask{
+  position:fixed;inset:0;
+  background:rgba(0,0,0,.6);
+  backdrop-filter:blur(4px);
+  z-index:999; /* 弹窗遮罩最高层级 */
+  display:none;
+  align-items:center;
+  justify-content:center;
+  pointer-events:auto;
+}
+.modal-mask.open{display:flex}
+.modal{
+  background:var(--card-solid);
+  width:100%;
+  max-width:480px;
+  border-radius:24px;
+  max-height:88vh;
+  overflow-y:auto;
+  padding:20px;
+  border:1px solid var(--border);
+  position:relative;
+  z-index:1000; /* 弹窗内容比遮罩更高 */
+  pointer-events:auto;
+}
+.modal-small{max-width:340px;padding:24px;margin:auto}
+.modal-header{
+  display:flex;align-items:center;justify-content:space-between;
+  margin-bottom:20px;gap:12px;
+  position:relative;
+  z-index:1001; /* 关闭按钮最上层 */
+}
+.modal-header h3{font-size:18px;font-weight:700}
+.modal-header .icon-btn{
+  pointer-events:auto;
+  position:relative;
+  z-index:1002;
+}
+
+.form-item{margin-bottom:16px}
+.form-item label{display:block;font-size:13px;color:var(--text2);margin-bottom:8px}
+.form-item input,.form-item select,.form-item textarea{
+  width:100%;
+  padding:12px 14px;
+  background:var(--input);
+  border-radius:12px;
+  font-size:14px;
+  color:var(--text);
+  border:1px solid var(--border);
+  min-height:44px;
+  pointer-events:auto;
+}
+.modal-actions{display:flex;gap:12px;margin-top:24px}
+.modal-actions button{flex:1;padding:12px;border-radius:12px;font-size:15px;font-weight:500;min-height:44px;pointer-events:auto}
+
+/* 设置组 */
+.setting-group{margin-bottom:20px;padding-bottom:16px;border-bottom:1px solid var(--border)}
+.setting-group:last-child{border-bottom:none}
+.group-title{font-size:13px;font-weight:600;color:var(--text2);margin-bottom:12px;text-transform:uppercase;letter-spacing:.5px}
+.setting-item{display:flex;align-items:center;justify-content:space-between;padding:10px 0;gap:12px}
+.setting-item.clickable{cursor:pointer;border-radius:12px;padding:12px 14px;margin:4px -14px;pointer-events:auto}
+.setting-info{flex:1;min-width:0}
+.setting-name{font-size:14px;font-weight:500}
+.setting-desc{font-size:12px;color:var(--text2);margin-top:2px}
+
+/* 公告弹窗专属 */
+.notice-content{
+  flex:1;
+  overflow-y:auto;
+  padding:4px 8px;
+  line-height:1.7;
+  font-size:14px;
+  max-height:60vh;
+}
+.notice-content h4{margin:16px 0 8px;font-size:15px;font-weight:600}
+.notice-content ul{padding-left:20px;margin-bottom:8px}
+.notice-content li{margin-bottom:4px;color:var(--text2)}
+.notice-content p{color:var(--text2);margin-bottom:6px;font-size:13px}
+
+/* 确认弹窗 */
+.confirm-modal{
+  position:fixed;inset:0;
+  display:none;
+  align-items:center;justify-content:center;
+  background:rgba(0,0,0,0.5);
+  z-index:1500;
+}
+.confirm-modal.open{display:flex}
+.confirm-box{background:var(--card-solid);padding:24px;border-radius:24px;width:90%;max-width:360px}
+.confirm-title{font-size:18px;font-weight:bold;margin-bottom:12px}
+.confirm-content{color:var(--text2);margin-bottom:20px;line-height:1.6}
+.confirm-actions{display:flex;gap:10px}
+.confirm-cancel{flex:1;padding:10px;border-radius:12px;background:var(--input);min-height:44px;pointer-events:auto}
+.confirm-confirm{flex:1;padding:10px;border-radius:12px;background:var(--primary-gradient);color:#fff;min-height:44px;pointer-events:auto}
+
+/* 图片查看器 */
+.image-viewer{
+  position:fixed;inset:0;
+  background:rgba(0,0,0,.95);
+  z-index:2000;
+  display:none;
+  align-items:center;justify-content:center;
+}
+.image-viewer.open{display:flex}
+.image-viewer img{max-width:95vw;max-height:85vh;border-radius:12px}
+
+/* Toast */
+.toast-float{
+  position:fixed;
+  top:20%;
+  left:50%;
+  transform:translateX(-50%) translateY(-20px);
+  z-index:3000;
+  opacity:0;
+  transition:all .3s ease;
+  pointer-events:none;
+}
+.toast-float.show{opacity:1;transform:translateX(-50%) translateY(0)}
+.toast-inner{
+  background:var(--card-solid);
+  padding:12px 20px;
+  border-radius:24px;
+  box-shadow:var(--shadow);
+  border:1px solid var(--border);
+  min-width:200px;
+  text-align:center;
+}
+.toast-inner strong{font-size:15px;font-weight:600}
+.toast-inner span{font-size:13px;color:var(--text2)}
+.toast-inner.danger strong{color:#ef4444}
+
+/* 打赏弹窗 */
+.reward-img-box{
+  width:100%;
+  aspect-ratio:1;
+  border-radius:16px;
+  overflow:hidden;
+  background:var(--input);
+  display:flex;
+  align-items:center;
+  justify-content:center;
+}
+.reward-img-box img{width:100%;height:100%;object-fit:contain}
+
+/* 生图页 */
+.draw-header{height:64px;padding:0 16px;display:flex;align-items:center;justify-content:space-between;border-bottom:1px solid var(--border);flex-shrink:0}
+.draw-header h1{font-size:20px;font-weight:700;flex:1;text-align:center;margin-right:38px}
+.draw-body{flex:1;overflow-y:auto;padding:20px}
+.draw-prompt{
+  width:100%;min-height:120px;
+  padding:16px;
+  background:var(--card);backdrop-filter:var(--glass-blur);
+  border:1px solid var(--border);
+  border-radius:20px;
+  font-size:15px;line-height:1.6;
+  resize:none;color:var(--text);
+  margin-bottom:16px;
+}
+.draw-result{
+  width:100%;aspect-ratio:1;
+  background:var(--card);backdrop-filter:var(--glass-blur);
+  border-radius:20px;
+  border:1px dashed var(--border);
+  display:flex;align-items:center;justify-content:center;
+  color:var(--text2);
+  margin-top:20px;
+  overflow:hidden;
+}
+.download-btn{margin-top:16px;display:none;width:100%}
+.download-btn.show{display:block}
+
+/* 缩放控制 */
+.zoom-control{display:flex;align-items:center;gap:8px}
+.zoom-btn{width:32px;height:32px;border-radius:8px;background:var(--input);display:flex;align-items:center;justify-content:center;font-size:16px;font-weight:bold;color:var(--text);pointer-events:auto}
+.zoom-value{min-width:48px;text-align:center;font-size:14px;font-weight:500}
+
+/* 动画 */
+@keyframes slideUp{
+  from{transform:translateY(20px);opacity:0}
+  to{transform:translateY(0);opacity:1}
+}
+.modal-mask.open .modal{animation:slideUp .3s cubic-bezier(.4,0,.2,1)}
+@keyframes spin{to{transform:rotate(360deg)}}
+.spinner{width:24px;height:24px;border:3px solid var(--border);border-top-color:var(--primary);border-radius:50%;animation:spin 1s linear infinite}
+
+/* 桌面端适配 */
+@media(min-width:768px){
+  .modal{border-radius:24px;margin:auto}
+  .drawer{width:300px}
+}
+</style>
+</head>
+<body>
+
+<!-- 1. 首页 -->
+<div id="homePage" class="page page-active">
+  <div class="header">
+    <h1 data-lang="homeTitle">智能体</h1>
+    <div style="display:flex;gap:8px;">
+      <button class="icon-btn" id="openSettingsBtn" title="设置">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
+      </button>
+    </div>
+  </div>
+  <div id="agentList" class="agent-list scrollbar"></div>
+  <div class="fab-wrap">
+    <div id="fabSub" class="fab-sub">
+      <div class="fab-row">
+        <span data-lang="aiDraw">AI 生图</span>
+        <button class="fab-icon draw" id="goDrawBtn">
+          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><circle cx="8" cy="10" r="1.5" fill="#ffcc00"/><circle cx="16" cy="14" r="1.5" fill="#ff6b6b"/><path d="M4 16l4-4 4 4 4-4 4 4"/></svg>
+        </button>
+      </div>
+      <div class="fab-row">
+        <span data-lang="newAgent">新建智能体</span>
+        <button class="fab-icon new" id="newAgentBtn">
+          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 5v14M5 12h14"/></svg>
+        </button>
+      </div>
+    </div>
+    <button class="fab-main" id="fabMainBtn">
+      <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/></svg>
+    </button>
+  </div>
+</div>
+
+<!-- 2. 聊天页 -->
+<div id="chatPage" class="page page-right">
+  <div class="chat-header">
+    <button class="icon-btn" id="openDrawerBtn">
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/></svg>
+    </button>
+    <div style="flex:1;min-width:0">
+      <div id="chatTitle" class="chat-title">智能体</div>
+      <div id="chatModel" class="chat-model" data-lang="devTip">点击进入无限制模式</div>
+    </div>
+    <div style="display:flex;gap:6px;">
+      <button class="icon-btn" id="goHomeBtn2">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/></svg>
+      </button>
+    </div>
+  </div>
+  <div id="chatBody" class="chat-body scrollbar"></div>
+  <div class="chat-input-bar">
+    <div class="word-count" id="wordCountTip">0</div>
+    <div class="input-row">
+      <button class="plus-btn" id="openActionBtn">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M12 5v14M5 12h14"/></svg>
+      </button>
+      <textarea id="chatInput" rows="1" data-lang-placeholder="inputPlaceholder" placeholder="输入消息..."></textarea>
+      <button class="send-btn" id="sendMsgBtn">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="19" x2="12" y2="5"/><polyline points="5 12 12 5 19 12"/></svg>
+      </button>
+    </div>
+  </div>
+
+  <!-- 会话抽屉 -->
+  <div class="drawer-mask" id="drawerMask"></div>
+  <div class="drawer" id="drawer">
+    <div class="drawer-header">
+      <h2 data-lang="chatList">对话列表</h2>
+      <button class="icon-btn" id="closeDrawerBtn">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+      </button>
+    </div>
+    <button class="btn-primary" style="margin:16px;" id="newSessionBtn" data-lang="newSession">+ 新建对话</button>
+    <button class="btn-cancel" style="margin:0 16px 12px;width:calc(100% - 32px);" id="drawerNoticeBtn">
+      📜 <span data-lang="notice">用户公告</span>
+    </button>
+    <div id="sessionList" class="session-list scrollbar"></div>
+  </div>
+</div>
+
+<!-- 3. AI生图页 -->
+<div id="drawPage" class="page page-right">
+  <div class="draw-header">
+    <button class="icon-btn" id="goHomeBtn3">
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="19" y1="12" x2="5" y2="12"/><polyline points="12 19 5 12 12 5"/></svg>
+    </button>
+    <h1 data-lang="aiDraw">AI 生图</h1>
+    <button class="icon-btn" id="drawSettingBtn">
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09"/></svg>
+    </button>
+  </div>
+  <div class="draw-body scrollbar">
+    <textarea id="drawPrompt" class="draw-prompt" data-lang-placeholder="drawPlaceholder" placeholder="例如：一只可爱的橘猫，夕阳下，治愈风，高清，细节丰富"></textarea>
+    <button class="btn-accent" id="generateImgBtn" data-lang="startGenerate">开始生成</button>
+    <div id="drawResult" class="draw-result">
+      <span data-lang="generatedHere">生成的图片将显示在这里</span>
+    </div>
+    <button id="downloadDrawBtn" class="btn-primary download-btn" data-lang="downloadImage">下载图片</button>
+  </div>
+</div>
+
+<!-- 全局设置弹窗 -->
+<div id="settingsModal" class="modal-mask">
+  <div class="modal">
+    <div class="modal-header">
+      <h3 data-lang="globalSettings">全局设置</h3>
+      <button class="icon-btn" id="closeSettingsBtn">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+      </button>
+    </div>
+    <div class="setting-group">
+      <div class="setting-item">
+        <div class="setting-info">
+          <div class="setting-name" data-lang="themeMode">主题模式</div>
+          <div class="setting-desc" data-lang="themeModeDesc">跟随系统 / 深色 / 浅色</div>
+        </div>
+        <select id="themeSelect">
+          <option value="auto" data-lang="themeAuto">跟随系统</option>
+          <option value="dark" data-lang="themeDark">深色模式</option>
+          <option value="light" data-lang="themeLight">浅色模式</option>
+        </select>
+      </div>
+      <div class="setting-item">
+        <div class="setting-info">
+          <div class="setting-name" data-lang="language">界面语言</div>
+          <div class="setting-desc" data-lang="languageDesc">简中 / 英文</div>
+        </div>
+        <select id="langSelect">
+          <option value="zh-CN">简体中文</option>
+          <option value="en">English</option>
+        </select>
+      </div>
+      <div class="setting-item">
+        <div class="setting-info">
+          <div class="setting-name">UI 缩放</div>
+          <div class="setting-desc">调整界面整体大小</div>
+        </div>
+        <div class="zoom-control">
+          <button class="zoom-btn" id="zoomMinusBtn">−</button>
+          <span class="zoom-value" id="zoomValue">100%</span>
+          <button class="zoom-btn" id="zoomPlusBtn">+</button>
+        </div>
+      </div>
+    </div>
+    <div class="setting-group">
+      <div class="setting-item clickable" id="openRewardBtn">
+        <div class="setting-info">
+          <div class="setting-name" data-lang="rewardAuthor">打赏作者</div>
+          <div class="setting-desc" data-lang="rewardTip">您的支持是我更新的动力</div>
+        </div>
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9 18 15 12 9 6"/></svg>
+      </div>
+    </div>
+    <div class="setting-group">
+      <div class="setting-item clickable" id="openAboutBtn">
+        <div class="setting-info">
+          <div class="setting-name" data-lang="about">关于</div>
+          <div class="setting-desc" data-lang="appVersion">版本 v1.0.0</div>
+        </div>
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9 18 15 12 9 6"/></svg>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- 开发者面板弹窗 -->
+<div id="devModal" class="modal-mask">
+  <div class="modal">
+    <div class="modal-header">
+      <h3 data-lang="devPanel">开发者面板</h3>
+      <button class="icon-btn" id="closeDevBtn">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+      </button>
+    </div>
+    <div class="setting-group">
+      <div class="group-title" data-lang="rareFeatures">冷门功能</div>
+      <div class="setting-item">
+        <div class="setting-info">
+          <div class="setting-name" data-lang="apiTimeout">API 请求超时</div>
+          <div class="setting-desc" data-lang="apiTimeoutDesc">单位：秒</div>
+        </div>
+        <input type="number" id="apiTimeout" value="30" min="5" max="120">
+      </div>
+      <div class="setting-item">
+        <div class="setting-info">
+          <div class="setting-name" data-lang="contextCount">上下文消息条数</div>
+          <div class="setting-desc" data-lang="contextCountDesc">携带历史消息数量</div>
+        </div>
+        <input type="number" id="contextCount" value="20" min="2" max="100">
+      </div>
+      <div class="setting-item">
+        <div class="setting-info">
+          <div class="setting-name" data-lang="temperature">Temperature 温度值</div>
+          <div class="setting-desc" data-lang="temperatureDesc">0=严谨，1=随机</div>
+        </div>
+        <input type="range" id="temperature" min="0" max="2" step="0.1" value="0.7">
+      </div>
+      <div class="setting-item">
+        <div class="setting-info">
+          <div class="setting-name" data-lang="mockReply">模拟 AI 回复</div>
+          <div class="setting-desc" data-lang="mockReplyDesc">不调用API，返回测试文本</div>
+        </div>
+        <input type="checkbox" id="mockReply">
+      </div>
+      <div class="setting-item">
+        <div class="setting-info">
+          <div class="setting-name" data-lang="streamOutput">流式打字输出</div>
+          <div class="setting-desc" data-lang="streamOutputDesc">AI回复逐字显示</div>
+        </div>
+        <input type="checkbox" id="streamOutput">
+      </div>
+    </div>
+    <div class="setting-group danger-title" style="color:#ef4444">
+      <div class="group-title" data-lang="dangerFeatures">危险功能</div>
+      <div class="setting-item">
+        <div class="setting-info">
+          <div class="setting-name" data-lang="disableFilter">无限制模式</div>
+          <div class="setting-desc" data-lang="disableFilterDesc">移除所有违禁词拦截</div>
+        </div>
+        <input type="checkbox" id="disableFilter">
+      </div>
+      <div class="setting-item">
+        <div class="setting-info">
+          <div class="setting-name" data-lang="resetSettings">重置所有设置</div>
+          <div class="setting-desc" data-lang="resetSettingsDesc">恢复为默认值</div>
+        </div>
+        <button class="danger-btn" id="resetSettingsBtn" data-lang="execute">执行重置</button>
+      </div>
+      <div class="setting-item">
+        <div class="setting-info">
+          <div class="setting-name" data-lang="deleteAllAgents">删除全部智能体</div>
+          <div class="setting-desc" data-lang="deleteAllAgentsDesc">清空所有对话数据</div>
+        </div>
+        <button class="danger-btn" id="deleteAllAgentsBtn" data-lang="execute">执行删除</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- 开发者密码验证弹窗 -->
+<div id="devPasswordModal" class="modal-mask">
+  <div class="modal modal-small">
+    <h3 data-lang="enterDevPwd">输入开发者密码</h3>
+    <input id="devPwdInput" type="password" data-lang-placeholder="inputPwd" placeholder="请输入密码" class="form-item" style="margin:16px 0;">
+    <div class="modal-actions">
+      <button class="btn-cancel" id="cancelDevPwdBtn" data-lang="cancel">取消</button>
+      <button class="btn-primary" id="verifyDevPwdBtn" data-lang="confirm">确认</button>
+    </div>
+  </div>
+</div>
+
+<!-- 智能体编辑弹窗（重点修复按钮） -->
+<div id="agentModal" class="modal-mask">
+  <div class="modal">
+    <div class="modal-header">
+      <h3 id="agentModalTitle" data-lang="createAgent">新建智能体</h3>
+      <button class="icon-btn" id="closeAgentModalBtn">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+      </button>
+    </div>
+    <div class="form-item">
+      <label data-lang="agentName">智能体名称</label>
+      <input id="agentName" type="text" placeholder="例如：情感陪伴助手">
+    </div>
+    <div class="form-item">
+      <label data-lang="agentGender">智能体性别</label>
+      <select id="agentGender">
+        <option value="unknown" data-lang="genderUnknown">未知</option>
+        <option value="male" data-lang="genderMale">男</option>
+        <option value="female" data-lang="genderFemale">女</option>
+      </select>
+    </div>
+    <div class="form-item">
+      <label data-lang="agentDesc">简介</label>
+      <input id="agentDesc" type="text" placeholder="一句话描述">
+    </div>
+    <div class="form-item">
+      <label data-lang="systemPrompt">系统提示词</label>
+      <textarea id="agentPrompt" rows="3" placeholder="设定身份、性格和能力..."></textarea>
+    </div>
+    <div class="form-item">
+      <label data-lang="modelProvider">模型提供商</label>
+      <select id="agentProvider">
+        <option value="siliconflow">硅基流动 SiliconFlow</option>
+        <option value="openrouter">OpenRouter</option>
+        <option value="doubao">字节跳动 · 豆包</option>
+        <option value="openai">OpenAI</option>
+        <option value="deepseek">DeepSeek</option>
+        <option value="custom">自定义 API</option>
+      </select>
+    </div>
+    <div class="form-item">
+      <label data-lang="apiAddress">API 地址</label>
+      <input id="agentApiBase" type="text" style="font-family:monospace">
+    </div>
+    <div class="form-item">
+      <label data-lang="apiKey">API Key</label>
+      <input id="agentApiKey" type="password" placeholder="sk-..." style="font-family:monospace">
+    </div>
+    <div class="form-item">
+      <label data-lang="modelName">模型名称</label>
+      <input id="agentModel" type="text" placeholder="例如：Qwen/Qwen2.5-7B-Instruct" style="font-family:monospace">
+    </div>
+    <div class="modal-actions">
+      <button class="btn-cancel" id="cancelAgentBtn" data-lang="cancel">取消</button>
+      <button class="btn-primary" id="saveAgentBtn" data-lang="save">保存</button>
+    </div>
+  </div>
+</div>
+
+<!-- 生图设置弹窗 -->
+<div id="drawSettingsModal" class="modal-mask">
+  <div class="modal">
+    <div class="modal-header">
+      <h3 data-lang="drawSettings">生图设置</h3>
+      <button class="icon-btn" id="closeDrawSettingBtn">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+      </button>
+    </div>
+    <div class="form-item">
+      <label data-lang="modelProvider">模型提供商</label>
+      <select id="drawProvider">
+        <option value="siliconflow">硅基流动 SiliconFlow</option>
+        <option value="openrouter">OpenRouter</option>
+        <option value="openai">OpenAI</option>
+        <option value="custom">自定义 API</option>
+      </select>
+    </div>
+    <div class="form-item">
+      <label data-lang="apiAddress">API 地址</label>
+      <input id="drawApiBase" type="text" style="font-family:monospace">
+    </div>
+    <div class="form-item">
+      <label data-lang="apiKey">API Key</label>
+      <input id="drawApiKey" type="password" placeholder="sk-..." style="font-family:monospace">
+    </div>
+    <div class="form-item">
+      <label data-lang="modelName">模型名称</label>
+      <input id="drawModel" type="text" style="font-family:monospace">
+    </div>
+    <div class="modal-actions">
+      <button class="btn-cancel" id="cancelDrawBtn" data-lang="cancel">取消</button>
+      <button class="btn-primary" id="saveDrawSettingBtn" data-lang="save">保存</button>
+    </div>
+  </div>
+</div>
+
+<!-- 公告弹窗（重点修复） -->
+<div id="noticeModal" class="modal-mask">
+  <div class="modal modal-small">
+    <div class="modal-header">
+      <h3 data-lang="noticeTitle">用户公告</h3>
+    </div>
+    <div class="notice-content scrollbar" id="noticeContent">
+      <h4>✨ 更新内容</h4>
+      <ul>
+        <li>新增智能体置顶功能，常用智能体一键置顶排在最前</li>
+        <li>新增UI界面缩放功能，支持50%-200%自由调节界面大小</li>
+        <li>优化全局UI布局，精简操作面板，提升使用效率</li>
+        <li>优化文件上传逻辑，支持全格式文件发送与展示</li>
+        <li>优化智能体列表交互，操作按钮更直观</li>
+        <li>统一全局圆角设计，视觉风格更协调</li>
+        <li>全面修复弹窗按钮点击无响应问题，移动端交互更流畅</li>
+        <li>重写事件绑定机制，所有按钮采用全局委托，彻底解决点不动问题</li>
+      </ul>
+      <h4>🔧 修复内容</h4>
+      <ul>
+        <li>修复新建智能体弹窗关闭叉号、保存、取消按钮点击无响应的问题</li>
+        <li>修复部分机型按钮触控热区过小、点击命中率低的问题</li>
+        <li>修复弹窗层级混乱、遮罩层拦截按钮点击的问题</li>
+        <li>修复深色模式下部分文字对比度不足问题</li>
+        <li>修复会话列表删除后选中状态异常问题</li>
+        <li>修复输入框高度自适应偶发异常问题</li>
+        <li>修复设置项切换后状态不同步问题</li>
+        <li>修复公告弹窗首次进入不显示的问题</li>
+      </ul>
+      <h4>🗑️ 删除内容</h4>
+      <ul>
+        <li>移除内置终端与虚拟文件系统功能</li>
+        <li>移除表情包面板与相关功能</li>
+        <li>移除自定义HTML工具模块</li>
+        <li>移除终端文件管理专区</li>
+        <li>精简冗余设置选项，聚焦核心功能</li>
+      </ul>
+      <h4>📜 免责声明</h4>
+      <p>1. 本应用为纯本地客户端工具，所有AI对话与生图服务均由第三方API提供商提供，本应用不对第三方服务的稳定性、准确性、合法性承担任何责任。</p>
+      <p>2. 用户使用本应用产生的所有对话内容、生成图片均由用户自行负责，因内容违规、侵权等造成的一切后果由用户本人承担，与本应用作者无关。</p>
+      <p>3. 本应用仅提供接口调用能力，不存储、不上传用户的任何对话数据与API密钥，所有数据均保存在用户本地设备中。因设备损坏、清理缓存等造成的数据丢失，本作者不承担任何责任。</p>
+      <p>4. 用户需妥善保管自己的API密钥，因密钥泄露、被盗用造成的费用损失由用户自行承担。</p>
+      <p>5. 本应用仅供学习交流使用，请勿用于任何违法违规用途。用户违反相关法律法规造成的一切后果，由用户自行承担。</p>
+      <p>6. 本应用作者不对软件的可用性、稳定性、无错误性做任何明示或暗示的担保，不保证功能一定满足用户需求。</p>
+      <p style="margin-top:12px;font-weight:bold;color:#ef4444;" data-lang="disclaimerFinal">⚠️ 在此应用发生任何意外与本作者无关。</p>
+    </div>
+    <div class="modal-actions">
+      <button class="btn-cancel" id="noticeCancelBtn">取消</button>
+      <button class="btn-primary" id="noticeAgreeBtn" disabled data-lang="agreeAndContinue">同意并继续</button>
+    </div>
+  </div>
+</div>
+
+<!-- 打赏弹窗 -->
+<div id="rewardModal" class="modal-mask">
+  <div class="modal modal-small">
+    <div class="modal-header">
+      <h3 data-lang="rewardAuthor">打赏作者,也可以不打赏(纯属自愿)。</h3>
+      <button class="icon-btn" id="closeRewardBtn">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+      </button>
+    </div>
+    <div class="reward-img-box">
+      <img src="https://chinese8902.github.io/game/cos.png" alt="打赏码如果你看到这个的话，就说明网络不好请换个网络，或者开一个加速器。">
+    </div>
+    <p style="text-align:center;color:var(--text2);font-size:13px;margin-top:12px;" data-lang="rewardTip">感谢您的支持，您的鼓励是我更新的最大动力 ❤️ 当然不支持也行</p>
+  </div>
+</div>
+
+<!-- 关于弹窗 -->
+<div id="aboutModal" class="modal-mask">
+  <div class="modal">
+    <div class="modal-header">
+      <h3 data-lang="about">关于</h3>
+      <button class="icon-btn" id="closeAboutBtn">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+      </button>
+    </div>
+    <div class="notice-content scrollbar">
+      <div style="text-align:center;padding:20px 0;">
+        <div style="width:64px;height:64px;border-radius:20px;background:var(--primary-gradient);color:#fff;font-size:24px;font-weight:bold;display:flex;align-items:center;justify-content:center;margin:0 auto 12px;">AI</div>
+        <div class="about-name" data-lang="appName">本地 AI 智能体</div>
+        <div class="about-version" data-lang="appVersion" style="font-size:13px;color:var(--text2);">版本 v1.0.0</div>
+      </div>
+      <p style="color:var(--text2);font-size:14px;line-height:1.7;text-align:center;padding:0 10px;">一款纯本地运行的轻量级AI智能体客户端，支持多模型对话、AI生图等功能，所有数据本地存储，保护用户隐私。</p>
+      <h4 style="margin:20px 0 10px;" data-lang="disclaimer">📜 免责声明</h4>
+      <p>1. 本应用仅作为API接口调用工具，所有AI生成内容均由第三方模型服务商提供，本应用不对内容的准确性、合法性承担任何责任。</p>
+      <p>2. 用户使用本应用产生的一切行为与后果由用户自行承担，因使用本应用造成的任何直接或间接损失，本作者概不负责。</p>
+      <p>3. 本应用所有数据均存储在用户本地设备中，因设备故障、清理数据等造成的信息丢失，本作者不承担任何责任。</p>
+      <p>4. 用户需自行承担API调用产生的所有费用，本应用不收取任何费用，也不对第三方收费标准负责。</p>
+      <p>5. 禁止使用本应用从事任何违法违规活动，违者后果自负。</p>
+      <p style="margin-top:12px;font-weight:bold;color:#ef4444;" data-lang="disclaimerFinal">⚠️ 在此应用发生任何意外与本作者无关。</p>
+    </div>
+  </div>
+</div>
+
+<!-- 自定义确认弹窗 -->
+<div id="confirmModal" class="confirm-modal">
+  <div class="confirm-box">
+    <div class="confirm-title" id="confirmTitle">提示</div>
+    <div class="confirm-content" id="confirmContent">确认执行此操作？</div>
+    <div class="confirm-actions">
+      <button class="confirm-cancel" id="confirmCancelBtn">取消</button>
+      <button class="confirm-confirm" id="confirmConfirmBtn">确认</button>
+    </div>
+  </div>
+</div>
+
+<!-- 图片查看器 -->
+<div id="imageViewer" class="image-viewer">
+  <img id="viewerImg" src="" alt="">
+  <button class="viewer-download" id="downloadViewerBtn" data-lang="downloadImage">下载图片</button>
+</div>
+
+<!-- 隐藏文件输入 -->
+<input type="file" id="fileInput" accept="*/*" multiple class="hidden">
+<input type="file" id="imgInput" accept="image/*" class="hidden">
+
+<script>
+/* ========== 全局配置 ========== */
+const UNLOCK_PASSWORD = '561278';
+const DEV_PASSWORD = 'Chinese8902';
+const CHAT_PROVIDERS = {
+  siliconflow:{base:'https://api.siliconflow.cn/v1',model:'Qwen/Qwen2.5-7B-Instruct'},
+  openrouter:{base:'https://openrouter.ai/api/v1',model:'deepseek/deepseek-v4-flash:free'},
+  doubao:{base:'https://ark.cn-beijing.volces.com/api/v3',model:'doubao-1.5-pro'},
+  openai:{base:'https://api.openai.com/v1',model:'gpt-4o-mini'},
+  deepseek:{base:'https://api.deepseek.com/v1',model:'deepseek-chat'},
+  custom:{base:'https://api.example.com/v1',model:''}
+};
+const DRAW_PROVIDERS = {
+  siliconflow:{base:'https://api.siliconflow.cn/v1',model:'black-forest-labs/FLUX.2-pro'},
+  openrouter:{base:'https://openrouter.ai/api/v1',model:'stabilityai/stable-diffusion-3.5-large'},
+  openai:{base:'https://api.openai.com/v1',model:'dall-e-3'},
+  custom:{base:'https://api.example.com/v1',model:''}
+};
+
+/* ========== 多语言包 ========== */
+const LANG = {
+  'zh-CN': {
+    appTitle:'本地 AI 智能体', homeTitle:'智能体', aiDraw:'AI 生图', newAgent:'新建智能体',
+    devTip:'点击进入无限制模式', inputPlaceholder:'输入消息...',
+    clearChat:'清空对话', chatList:'对话列表', newSession:'+ 新建对话',
+    drawPlaceholder:'例如：一只可爱的橘猫，夕阳下，治愈风，高清，细节丰富',
+    startGenerate:'开始生成', generatedHere:'生成的图片将显示在这里', downloadImage:'下载图片',
+    globalSettings:'全局设置', themeMode:'主题模式', themeModeDesc:'跟随系统 / 深色 / 浅色',
+    themeAuto:'跟随系统', themeDark:'深色模式', themeLight:'浅色模式',
+    language:'界面语言', languageDesc:'简中 / 英文',
+    devPanel:'开发者面板', rareFeatures:'冷门功能',
+    apiTimeout:'API 请求超时', apiTimeoutDesc:'单位：秒',
+    contextCount:'上下文消息条数', contextCountDesc:'携带历史消息数量',
+    temperature:'Temperature 温度值', temperatureDesc:'0=严谨，1=随机',
+    mockReply:'模拟 AI 回复', mockReplyDesc:'不调用API，返回测试文本',
+    streamOutput:'流式打字输出', streamOutputDesc:'AI回复逐字显示',
+    dangerFeatures:'危险功能', disableFilter:'无限制模式', disableFilterDesc:'移除所有违禁词拦截',
+    resetSettings:'重置所有设置', resetSettingsDesc:'恢复为默认值',
+    deleteAllAgents:'删除全部智能体', deleteAllAgentsDesc:'清空所有对话数据',
+    execute:'执行', enterDevPwd:'输入开发者密码', inputPwd:'请输入密码',
+    cancel:'取消', confirm:'确认', createAgent:'新建智能体', editAgent:'编辑智能体',
+    agentName:'智能体名称', agentGender:'智能体性别', genderMale:'男', genderFemale:'女', genderUnknown:'未知',
+    agentDesc:'简介', systemPrompt:'系统提示词', modelProvider:'模型提供商',
+    apiAddress:'API 地址', apiKey:'API Key', modelName:'模型名称',
+    save:'保存', drawSettings:'生图设置', tip:'提示', warning:'警告', error:'错误',
+    noAgent:'请输入智能体名称', incompleteApi:'请填写完整 API 信息',
+    generating:'生成中，请稍候...', generateFailed:'生成失败：',
+    rewardAuthor:'打赏作者', rewardTip:'您的支持是我更新的动力',
+    about:'关于', notice:'用户公告', noticeTitle:'用户公告',
+    disclaimer:'📜 免责声明', disclaimerFinal:'⚠️ 在此应用发生任何意外与本作者无关。',
+    agreeAndContinue:'同意并继续', appName:'本地 AI 智能体', appVersion:'版本 v1.0.0',
+    pwdError:'密码错误', confirmDelete:'确定删除这个智能体吗？',
+    confirmDeleteSession:'删除这个会话？', confirmClearChat:'确定清空当前对话吗？',
+    atLeastOneSession:'至少保留一个会话', confirmResetSettings:'确定重置所有设置为默认值？',
+    confirmDeleteAllAgents:'确定删除全部智能体和所有对话记录？此操作不可恢复！',
+    renameSession:'重命名会话', inputNewName:'请输入新名称',
+    unlocked:'解锁成功！已开启无限制模式', pleaseInputPrompt:'请输入画面描述',
+    pleaseInputApiKey:'请先填写 API Key', scrollToBottomToAgree:'请滚动至底部阅读完整内容后再同意'
+  },
+  'en': {
+    appTitle:'Local AI Agent', homeTitle:'Agents', aiDraw:'AI Draw', newAgent:'New Agent',
+    devTip:'Tap for unlimited mode', inputPlaceholder:'Type a message...',
+    clearChat:'Clear Chat', chatList:'Chat List', newSession:'+ New Chat',
+    drawPlaceholder:'e.g. A cute orange cat at sunset, healing style, high detail',
+    startGenerate:'Generate', generatedHere:'Generated image will appear here', downloadImage:'Download',
+    globalSettings:'Global Settings', themeMode:'Theme Mode', themeModeDesc:'Auto / Dark / Light',
+    themeAuto:'Auto', themeDark:'Dark Mode', themeLight:'Light Mode',
+    language:'Interface Language', languageDesc:'Chinese / English',
+    devPanel:'Developer Panel', rareFeatures:'Rare Features',
+    apiTimeout:'API Request Timeout', apiTimeoutDesc:'In seconds',
+    contextCount:'Context Message Count', contextCountDesc:'Number of history messages',
+    temperature:'Temperature', temperatureDesc:'0=Precise, 1=Creative',
+    mockReply:'Mock AI Reply', mockReplyDesc:'Return test text without API',
+    streamOutput:'Streaming Output', streamOutputDesc:'Typewriter effect',
+    dangerFeatures:'Danger Zone', disableFilter:'Unlimited Mode', disableFilterDesc:'Remove all word filters',
+    resetSettings:'Reset All Settings', resetSettingsDesc:'Restore defaults',
+    deleteAllAgents:'Delete All Agents', deleteAllAgentsDesc:'Clear all chat data',
+    execute:'Execute', enterDevPwd:'Enter Developer Password', inputPwd:'Enter password',
+    cancel:'Cancel', confirm:'Confirm', createAgent:'Create Agent', editAgent:'Edit Agent',
+    agentName:'Agent Name', agentGender:'Agent Gender', genderMale:'Male', genderFemale:'Female', genderUnknown:'Unknown',
+    agentDesc:'Description', systemPrompt:'System Prompt', modelProvider:'Model Provider',
+    apiAddress:'API Address', apiKey:'API Key', modelName:'Model Name',
+    save:'Save', drawSettings:'Draw Settings', tip:'Tip', warning:'Warning', error:'Error',
+    noAgent:'Please enter an agent name', incompleteApi:'Please complete API information',
+    generating:'Generating, please wait...', generateFailed:'Failed: ',
+    rewardAuthor:'Reward Author', rewardTip:'Your support keeps me updating',
+    about:'About', notice:'Notice', noticeTitle:'User Notice',
+    disclaimer:'📜 Disclaimer', disclaimerFinal:'⚠️ The author is not responsible for any accidents caused by this application.',
+    agreeAndContinue:'Agree & Continue', appName:'Local AI Agent', appVersion:'Version v1.0.0',
+    pwdError:'Wrong password', confirmDelete:'Delete this agent?',
+    confirmDeleteSession:'Delete this session?', confirmClearChat:'Clear current chat?',
+    atLeastOneSession:'At least one session required', confirmResetSettings:'Reset all settings to default?',
+    confirmDeleteAllAgents:'Delete all agents & chats? This cannot be undone!',
+    renameSession:'Rename Session', inputNewName:'Enter new name',
+    unlocked:'Unlocked! Restrictions disabled', pleaseInputPrompt:'Please enter a prompt',
+    pleaseInputApiKey:'Please enter your API Key first'
+  }
+};
+
+/* ========== 全局状态 ========== */
+let agents = [];
+let drawConfig = {};
+let settings = {};
+let devSettings = {};
+let currentAgentId = null;
+let currentSessionId = null;
+let editingAgentId = null;
+let unlockMode = false;
+let currentLang = 'zh-CN';
+let currentDrawImage = '';
+let currentViewImage = '';
+let pendingImages = [];
+
+/* ========== 核心工具：事件委托（彻底解决按钮点不动+下拉框无法点击） ========== */
+function on(selector, handler) {
+  // 同时绑定点击和触摸，兼容移动端
+  ['click', 'touchstart'].forEach(eventType => {
+    document.addEventListener(eventType, e => {
+      const target = e.target.closest(selector);
+      if (!target) return;
+      // 修复select/input/textarea原生弹窗被拦截问题
+      const isNativeControl = ['SELECT','INPUT','TEXTAREA'].includes(target.tagName);
+      if (eventType === 'touchstart' && !isNativeControl) e.preventDefault();
+      handler(e, target);
+    }, { passive: false });
+  });
+}
+
+/* ========== 通用弹窗函数 ========== */
+function showConfirm(title, content, onConfirm) {
+  const modal = document.getElementById('confirmModal');
+  document.getElementById('confirmTitle').textContent = title;
+  document.getElementById('confirmContent').textContent = content;
+  modal.classList.add('open');
+  
+  const confirmBtn = document.getElementById('confirmConfirmBtn');
+  const cancelBtn = document.getElementById('confirmCancelBtn');
+  
+  const close = () => {
+    modal.classList.remove('open');
+    confirmBtn.onclick = null;
+    cancelBtn.onclick = null;
+  };
+  
+  confirmBtn.onclick = () => {
+    close();
+    onConfirm && onConfirm();
+  };
+  cancelBtn.onclick = close;
+}
+
+function showPrompt(title, placeholder, defaultValue, onConfirm) {
+  const modal = document.getElementById('promptModal');
+  if (!modal) {
+    // 简易输入弹窗
+    const val = prompt(title, defaultValue);
+    if (val !== null) onConfirm(val);
+    return;
+  }
+}
+
+/* ========== 存储模块 ========== */
+function saveAll(){
+  localStorage.setItem('agents', JSON.stringify(agents));
+  localStorage.setItem('drawConfig', JSON.stringify(drawConfig));
+  localStorage.setItem('settings', JSON.stringify(settings));
+  localStorage.setItem('devSettings', JSON.stringify(devSettings));
+}
+
+function loadAll(){
+  agents = JSON.parse(localStorage.getItem('agents') || '[]');
+  
+  drawConfig = JSON.parse(localStorage.getItem('drawConfig') || JSON.stringify({
+    provider:'siliconflow',
+    apiBase:DRAW_PROVIDERS.siliconflow.base,
+    apiKey:'',
+    model:DRAW_PROVIDERS.siliconflow.model,
+    size:'1024x1024',
+    num:1
+  }));
+  
+  const savedSettings = localStorage.getItem('settings');
+  settings = savedSettings ? JSON.parse(savedSettings) : getDefaultSettings();
+  
+  const savedDev = localStorage.getItem('devSettings');
+  devSettings = savedDev ? JSON.parse(savedDev) : getDefaultDevSettings();
+}
+
+function getDefaultSettings(){
+  return {
+    theme:'auto', fontSize:15, enterSend:true, autoScroll:true,
+    showTime:false, vibrate:true, lang:'zh-CN',
+    autoRenameSession:true, compactMode:false, wordCount:true,
+    amoledDark:false, glassEffect:true, uiZoom: 100
+  };
+}
+
+function getDefaultDevSettings(){
+  return {
+    apiTimeout:30, contextCount:20, temperature:0.7,
+    mockReply:false, apiDebug:false, streamOutput:false,
+    disableFilter:false, showMsgId:false, slowNetwork:false
+  };
+}
+
+/* ========== 工具函数 ========== */
+function t(key){
+  return LANG[currentLang][key] || key;
+}
+
+function escapeHtml(s){
+  if(s == null) return '';
+  return String(s)
+    .replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')
+    .replace(/"/g,'&quot;').replace(/'/g,'&#039;');
+}
+
+function vibrate(){
+  if(settings.vibrate && navigator.vibrate){
+    navigator.vibrate(10);
+  }
+}
+
+function showToast(title, text, type = 'info'){
+  const old = document.querySelector('.toast-float');
+  if(old) old.remove();
+  
+  const toast = document.createElement('div');
+  toast.className = 'toast-float';
+  toast.innerHTML = `<div class="toast-inner ${type}"><strong>${escapeHtml(title)}</strong><span>${escapeHtml(text)}</span></div>`;
+  document.body.appendChild(toast);
+  
+  setTimeout(() => toast.classList.add('show'), 10);
+  setTimeout(() => {
+    toast.classList.remove('show');
+    setTimeout(() => toast.remove(), 300);
+  }, 2000);
+}
+
+/* ========== UI缩放 ========== */
+function applyUIZoom(){
+  const zoom = settings.uiZoom || 100;
+  document.documentElement.style.zoom = zoom / 100;
+  document.getElementById('zoomValue').textContent = zoom + '%';
+}
+
+function changeZoom(delta){
+  let zoom = (settings.uiZoom || 100) + delta;
+  zoom = Math.max(50, Math.min(200, zoom));
+  settings.uiZoom = zoom;
+  saveAll();
+  applyUIZoom();
+}
+
+/* ========== 语言渲染 ========== */
+function applyLanguage(){
+  currentLang = settings.lang;
+  document.title = t('appTitle');
+  
+  document.querySelectorAll('[data-lang]').forEach(el => {
+    const key = el.getAttribute('data-lang');
+    if(LANG[currentLang][key]){
+      el.textContent = t(key);
+    }
+  });
+  
+  document.querySelectorAll('[data-lang-placeholder]').forEach(el => {
+    const key = el.getAttribute('data-lang-placeholder');
+    if(LANG[currentLang][key]){
+      el.placeholder = t(key);
+    }
+  });
+  
+  document.querySelectorAll('select option[data-lang]').forEach(opt => {
+    const key = opt.getAttribute('data-lang');
+    if(LANG[currentLang][key]){
+      opt.textContent = t(key);
+    }
+  });
+}
+
+/* ========== 主题应用 ========== */
+function applyAllSettings(){
+  applyLanguage();
+  setTheme(settings.theme);
+  applyUIZoom();
+  document.documentElement.style.fontSize = settings.fontSize + 'px';
+  document.body.classList.toggle('amoled', settings.amoledDark);
+  document.getElementById('wordCountTip').style.display = settings.wordCount ? 'block' : 'none';
+  unlockMode = devSettings.disableFilter;
+}
+
+function setTheme(mode){
+  let isDark = true;
+  if(mode === 'auto'){
+    isDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+  }else{
+    isDark = mode === 'dark';
+  }
+  document.body.classList.toggle('light', !isDark);
+  document.getElementById('themeSelect').value = mode;
+}
+
+/* ========== 页面切换 ========== */
+function goHome(){
+  vibrate();
+  document.getElementById('homePage').className = 'page page-active';
+  document.getElementById('chatPage').className = 'page page-right';
+  document.getElementById('drawPage').className = 'page page-right';
+  toggleFab(false);
+  toggleDrawer(false);
+  currentAgentId = null;
+  currentSessionId = null;
+}
+
+function goChatPage(agentId){
+  vibrate();
+  currentAgentId = agentId;
+  const agent = agents.find(a => a.id === agentId);
+  if(!agent) return;
+  
+  if(!agent.sessions || agent.sessions.length === 0){
+    agent.sessions = [{id:'s_'+Date.now(),name:'新对话',pinned:false,messages:[]}];
+    saveAll();
+  }
+  
+  currentSessionId = agent.sessions[0].id;
+  document.getElementById('chatTitle').textContent = agent.name;
+  document.getElementById('chatModel').textContent = agent.model;
+  
+  document.getElementById('homePage').className = 'page page-left';
+  document.getElementById('chatPage').className = 'page page-active';
+  document.getElementById('drawPage').className = 'page page-right';
+  
+  renderSessionList();
+  renderMessages();
+}
+
+function goDrawPage(){
+  vibrate();
+  toggleFab(false);
+  document.getElementById('homePage').className = 'page page-left';
+  document.getElementById('chatPage').className = 'page page-left';
+  document.getElementById('drawPage').className = 'page page-active';
+}
+
+function toggleFab(force){
+  const sub = document.getElementById('fabSub');
+  const open = typeof force === 'boolean' ? force : !sub.classList.contains('open');
+  sub.classList.toggle('open', open);
+}
+
+/* ========== 智能体管理 ========== */
+function renderAgentList(){
+  const list = document.getElementById('agentList');
+  if(agents.length === 0){
+    list.innerHTML = `<div style="text-align:center;color:var(--text2);padding:80px 20px;">暂无智能体<br><span style="font-size:14px;margin-top:8px;display:block;">点击右下角菜单创建</span></div>`;
+    return;
+  }
+  
+  const sorted = [...agents].sort((a,b) => (b.pinned?1:0)-(a.pinned?1:0));
+  list.innerHTML = sorted.map(a => `
+    <div class="agent-item" data-id="${a.id}">
+      <div class="agent-avatar">${a.name.charAt(0)}</div>
+      <div class="agent-info">
+        <div class="agent-name">${escapeHtml(a.name)}</div>
+        <div class="agent-desc">${escapeHtml(a.desc || a.model)}</div>
+      </div>
+      <div class="agent-actions">
+        <button class="icon-btn ${a.pinned?'pin-active':''}" data-action="pin" data-id="${a.id}" title="置顶">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 17v5"/><path d="M9 10.76a2 2 0 0 1-1.11 1.79l-1.78.9A2 2 0 0 0 5 14.24V15a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-.76a2 2 0 0 0-1.11-1.79l-1.78-.9A2 2 0 0 1 15 10.76V7a1 1 0 0 0-1-1H10a1 1 0 0 0-1 1v3.76z"/></svg>
+        </button>
+        <button class="icon-btn" data-action="edit" data-id="${a.id}" title="${t('editAgent')}">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.12 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+        </button>
+        <button class="icon-btn" data-action="delete" data-id="${a.id}">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+        </button>
+      </div>
+    </div>
+  `).join('');
+}
+
+function toggleAgentPin(id){
+  const a = agents.find(x => x.id === id);
+  a.pinned = !a.pinned;
+  saveAll();
+  renderAgentList();
+  showToast(t('tip'), a.pinned ? '已置顶' : '已取消置顶');
+}
+
+function deleteAgent(id){
+  showConfirm(t('warning'), t('confirmDelete'), () => {
+    agents = agents.filter(x => x.id !== id);
+    saveAll();
+    renderAgentList();
+  });
+}
+
+function openCreateAgent(){
+  toggleFab(false);
+  vibrate();
+  editingAgentId = null;
+  document.getElementById('agentModalTitle').textContent = t('createAgent');
+  document.getElementById('agentName').value = '';
+  document.getElementById('agentDesc').value = '';
+  document.getElementById('agentPrompt').value = '';
+  document.getElementById('agentApiKey').value = '';
+  document.getElementById('agentProvider').value = 'siliconflow';
+  document.getElementById('agentGender').value = 'unknown';
+  onProviderChange();
+  document.getElementById('agentModal').classList.add('open');
+}
+
+function editAgent(id){
+  editingAgentId = id;
+  const a = agents.find(x => x.id === id);
+  document.getElementById('agentModalTitle').textContent = t('editAgent');
+  document.getElementById('agentName').value = a.name;
+  document.getElementById('agentDesc').value = a.desc || '';
+  document.getElementById('agentPrompt').value = a.prompt || '';
+  document.getElementById('agentProvider').value = a.provider;
+  document.getElementById('agentApiBase').value = a.apiBase;
+  document.getElementById('agentApiKey').value = a.apiKey;
+  document.getElementById('agentModel').value = a.model;
+  document.getElementById('agentGender').value = a.gender || 'unknown';
+  document.getElementById('agentModal').classList.add('open');
+}
+
+function onProviderChange(){
+  const p = document.getElementById('agentProvider').value;
+  document.getElementById('agentApiBase').value = CHAT_PROVIDERS[p].base;
+  document.getElementById('agentModel').value = CHAT_PROVIDERS[p].model;
+}
+
+function saveAgent(){
+  vibrate();
+  const name = document.getElementById('agentName').value.trim();
+  const gender = document.getElementById('agentGender').value;
+  const desc = document.getElementById('agentDesc').value.trim();
+  const prompt = document.getElementById('agentPrompt').value.trim();
+  const provider = document.getElementById('agentProvider').value;
+  const apiBase = document.getElementById('agentApiBase').value.trim();
+  const apiKey = document.getElementById('agentApiKey').value.trim();
+  const model = document.getElementById('agentModel').value.trim();
+  
+  if(!name) return showToast(t('error'), t('noAgent'), 'danger');
+  if(!apiBase || !apiKey || !model) return showToast(t('error'), t('incompleteApi'), 'danger');
+  
+  const data = {name, gender, desc, prompt, provider, apiBase, apiKey, model, pinned:false, sessions:[]};
+  
+  if(editingAgentId){
+    const a = agents.find(x => x.id === editingAgentId);
+    Object.assign(a, data);
+    if(currentAgentId === editingAgentId){
+      document.getElementById('chatTitle').textContent = a.name;
+      document.getElementById('chatModel').textContent = a.model;
+      renderMessages();
+    }
+  } else {
+    agents.unshift({id:'a_'+Date.now(), ...data});
+  }
+  
+  saveAll();
+  renderAgentList();
+  closeAgentModal();
+}
+
+function closeAgentModal(){
+  document.getElementById('agentModal').classList.remove('open');
+}
+
+/* ========== 会话管理 ========== */
+function toggleDrawer(force){
+  const drawer = document.getElementById('drawer');
+  const mask = document.getElementById('drawerMask');
+  const open = typeof force === 'boolean' ? force : !drawer.classList.contains('open');
+  drawer.classList.toggle('open', open);
+  mask.classList.toggle('open', open);
+}
+
+function renderSessionList(){
+  const agent = agents.find(a => a.id === currentAgentId);
+  if(!agent) return;
+  
+  const list = document.getElementById('sessionList');
+  const sorted = [...agent.sessions].sort((a,b) => (b.pinned?1:0)-(a.pinned?1:0));
+  
+  list.innerHTML = sorted.map(s => `
+    <div class="session-item ${currentSessionId===s.id?'active':''}" data-id="${s.id}">
+      <span class="name">${escapeHtml(s.name)}</span>
+      <div class="session-item-actions">
+        <button class="icon-btn" style="width:28px;height:28px" data-action="rename" data-id="${s.id}" title="${t('renameSession')}">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.12 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+        </button>
+        <button class="icon-btn" style="width:28px;height:28px" data-action="delete" data-id="${s.id}">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+        </button>
+      </div>
+    </div>
+  `).join('');
+}
+
+function newSession(){
+  vibrate();
+  const agent = agents.find(a => a.id === currentAgentId);
+  if(!agent) return;
+  
+  const session = {id:'s_'+Date.now(), name: '新对话', pinned:false, messages:[]};
+  agent.sessions.unshift(session);
+  currentSessionId = session.id;
+  saveAll();
+  renderSessionList();
+  renderMessages();
+  toggleDrawer(false);
+}
+
+function switchSession(id){
+  currentSessionId = id;
+  renderSessionList();
+  renderMessages();
+  toggleDrawer(false);
+}
+
+function renameSession(id){
+  const agent = agents.find(a => a.id === currentAgentId);
+  const s = agent.sessions.find(x => x.id === id);
+  const newName = prompt(t('inputNewName'), s.name);
+  if(newName && newName.trim()){
+    s.name = newName.trim();
+    saveAll();
+    renderSessionList();
+  }
+}
+
+function deleteSession(id){
+  const agent = agents.find(a => a.id === currentAgentId);
+  if(agent.sessions.length <= 1) return showToast(t('warning'), t('atLeastOneSession'), 'warning');
+  
+  showConfirm(t('warning'), t('confirmDeleteSession'), () => {
+    agent.sessions = agent.sessions.filter(x => x.id !== id);
+    if(currentSessionId === id) currentSessionId = agent.sessions[0].id;
+    saveAll();
+    renderSessionList();
+    renderMessages();
+  });
+}
+
+/* ========== 聊天功能 ========== */
+function getCurrentSession(){
+  const agent = agents.find(a => a.id === currentAgentId);
+  if(!agent) return null;
+  return agent.sessions.find(s => s.id === currentSessionId);
+}
+
+function renderMessages(){
+  const session = getCurrentSession();
+  const box = document.getElementById('chatBody');
+  
+  if(!session || session.messages.length === 0){
+    box.innerHTML = `<div style="text-align:center;color:var(--text2);padding:100px 20px;">${t('inputPlaceholder')}</div>`;
+    return;
+  }
+  
+  box.innerHTML = session.messages.map(m => {
+    const isUser = m.role === 'user';
+    let timeHtml = '';
+    if(settings.showTime && m.time){
+      timeHtml = `<div class="msg-time">${m.time}</div>`;
+    }
+    
+    let contentHtml = '';
+    if(m.images && m.images.length){
+      const imgs = m.images.map(src => `<img src="${src}" class="msg-img" onclick="openImageViewer('${src}')">`).join('');
+      contentHtml = `${m.content ? `<div>${escapeHtml(m.content)}</div>` : ''}
+        <div style="display:flex;flex-wrap:wrap;gap:8px;">${imgs}</div>`;
+    } else {
+      contentHtml = escapeHtml(m.content);
+    }
+    
+    return `<div class="msg ${isUser?'user':'ai'}">
+      <div class="msg-bubble">
+        ${contentHtml}
+        ${timeHtml}
+      </div>
+    </div>`;
+  }).join('');
+  
+  if(settings.autoScroll) box.scrollTop = box.scrollHeight;
+}
+
+function clearChat(){
+  showConfirm(t('warning'), t('confirmClearChat'), () => {
+    const session = getCurrentSession();
+    session.messages = [];
+    saveAll();
+    renderMessages();
+  });
+}
+
+async function sendMessage(){
+  vibrate();
+  const session = getCurrentSession();
+  const agent = agents.find(a => a.id === currentAgentId);
+  if(!session || !agent) return;
+  
+  const input = document.getElementById('chatInput');
+  const text = input.value.trim();
+  if(!text && pendingImages.length === 0) return;
+  
+  if(!unlockMode && !devSettings.disableFilter){
+    const forbidden = ['傻逼','脑残','废物','垃圾','去死'];
+    const hasForbidden = forbidden.some(w => text.includes(w));
+    if(hasForbidden){
+      showToast(t('warning'), '内容包含违规词汇', 'warning');
+      return;
+    }
+  }
+  
+  const now = new Date().toLocaleTimeString('zh-CN', {hour:'2-digit', minute:'2-digit'});
+  session.messages.push({role:'user', content:text, images:[...pendingImages], time: now});
+  saveAll();
+  
+  input.value = '';
+  input.style.height = 'auto';
+  updateWordCount();
+  pendingImages = [];
+  renderMessages();
+  
+  const box = document.getElementById('chatBody');
+  const loading = document.createElement('div');
+  loading.className = 'msg ai';
+  loading.innerHTML = '<div class="msg-bubble" style="display:flex;gap:4px;"><span style="width:6px;height:6px;border-radius:50%;background:#666;animation:bounce 1.4s infinite;"></span><span style="width:6px;height:6px;border-radius:50%;background:#666;animation:bounce 1.4s infinite .2s;"></span><span style="width:6px;height:6px;border-radius:50%;background:#666;animation:bounce 1.4s infinite .4s;"></span></div>';
+  box.appendChild(loading);
+  box.scrollTop = box.scrollHeight;
+  
+  if(devSettings.slowNetwork){
+    await new Promise(r => setTimeout(r, 2000));
+  }
+  
+  try {
+    if(devSettings.mockReply){
+      await new Promise(r => setTimeout(r, 800));
+      loading.remove();
+      session.messages.push({
+        role:'assistant', 
+        content: '这是模拟测试回复，未调用真实API。可在开发者面板关闭模拟模式。', 
+        time: new Date().toLocaleTimeString('zh-CN', {hour:'2-digit', minute:'2-digit'})
+      });
+      saveAll();
+      renderMessages();
+      return;
+    }
+    
+    const reply = await callAPI(agent, session, text);
+    loading.remove();
+    session.messages.push({
+      role:'assistant', 
+      content:reply, 
+      time: new Date().toLocaleTimeString('zh-CN', {hour:'2-digit', minute:'2-digit'})
+    });
+    
+    if(settings.autoRenameSession && session.messages.length === 2 && session.name.startsWith('新对话')){
+      session.name = text.substring(0, 15) + (text.length > 15 ? '...' : '');
+      renderSessionList();
+    }
+    
+    saveAll();
+    renderMessages();
+    
+  } catch(err){
+    loading.remove();
+    session.messages.push({
+      role:'assistant', 
+      content:'请求失败：'+err.message, 
+      time: new Date().toLocaleTimeString('zh-CN', {hour:'2-digit', minute:'2-digit'})
+    });
+    saveAll();
+    renderMessages();
+  }
+}
+
+async function callAPI(agent, session, text){
+  const url = agent.apiBase.replace(/\/$/, '') + '/chat/completions';
+  const messages = [];
+  if(agent.prompt) messages.push({role:'system', content:agent.prompt});
+  
+  const history = session.messages.slice(-devSettings.contextCount);
+  for(const m of history){
+    if(m.images && m.images.length){
+      const content = [{type:'text', text:m.content || ''}];
+      m.images.forEach(src => content.push({type:'image_url', image_url:{url:src}}));
+      messages.push({role:'user', content});
+    } else {
+      messages.push({role:m.role, content:m.content});
+    }
+  }
+  
+  const headers = {
+    'Content-Type':'application/json',
+    'Authorization':'Bearer '+agent.apiKey
+  };
+  if(agent.provider === 'openrouter'){
+    headers['HTTP-Referer'] = window.location.href;
+    headers['X-Title'] = 'Local AI Agent';
+  }
+  
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), devSettings.apiTimeout * 1000);
+  
+  const res = await fetch(url, {
+    method:'POST', headers,
+    signal: controller.signal,
+    body: JSON.stringify({
+      model:agent.model, 
+      messages, 
+      temperature: parseFloat(devSettings.temperature), 
+      stream:false
+    })
+  });
+  
+  clearTimeout(timeoutId);
+  if(!res.ok) throw new Error(`HTTP ${res.status}`);
+  const data = await res.json();
+  
+  if(devSettings.apiDebug){
+    console.log('API原始响应', data);
+  }
+  
+  return data.choices?.[0]?.message?.content || '(无回复)';
+}
+
+function updateWordCount(){
+  const input = document.getElementById('chatInput');
+  document.getElementById('wordCountTip').textContent = input.value.length;
+}
+
+/* ========== 无限制模式 ========== */
+function onModelClick(){
+  openDevPasswordModal();
+}
+
+function openDevPasswordModal(){
+  document.getElementById('devPwdInput').value = '';
+  document.getElementById('devPasswordModal').classList.add('open');
+}
+
+function verifyDevPassword(){
+  const pwd = document.getElementById('devPwdInput').value;
+  if(pwd !== DEV_PASSWORD){
+    showToast(t('error'), t('pwdError'), 'danger');
+    return;
+  }
+  document.getElementById('devPasswordModal').classList.remove('open');
+  openDevPanel();
+}
+
+function openDevPanel(){
+  document.getElementById('devModal').classList.add('open');
+  document.getElementById('apiTimeout').value = devSettings.apiTimeout;
+  document.getElementById('contextCount').value = devSettings.contextCount;
+  document.getElementById('temperature').value = devSettings.temperature;
+  document.getElementById('mockReply').checked = devSettings.mockReply;
+  document.getElementById('streamOutput').checked = devSettings.streamOutput;
+  document.getElementById('disableFilter').checked = devSettings.disableFilter;
+}
+
+function closeDevPanel(){
+  document.getElementById('devModal').classList.remove('open');
+}
+
+/* ========== 生图功能 ========== */
+function openDrawSettings(){
+  vibrate();
+  document.getElementById('drawProvider').value = drawConfig.provider;
+  document.getElementById('drawApiBase').value = drawConfig.apiBase;
+  document.getElementById('drawApiKey').value = drawConfig.apiKey;
+  document.getElementById('drawModel').value = drawConfig.model;
+  document.getElementById('drawSettingsModal').classList.add('open');
+}
+
+function closeDrawSettings(){
+  document.getElementById('drawSettingsModal').classList.remove('open');
+}
+
+function onDrawProviderChange(){
+  const p = document.getElementById('drawProvider').value;
+  document.getElementById('drawApiBase').value = DRAW_PROVIDERS[p].base;
+  document.getElementById('drawModel').value = DRAW_PROVIDERS[p].model;
+}
+
+function saveDrawSettings(){
+  vibrate();
+  drawConfig = {
+    provider: document.getElementById('drawProvider').value,
+    apiBase: document.getElementById('drawApiBase').value.trim(),
+    apiKey: document.getElementById('drawApiKey').value.trim(),
+    model: document.getElementById('drawModel').value.trim(),
+    size: '1024x1024',
+    num: 1
+  };
+  saveAll();
+  closeDrawSettings();
+  showToast(t('tip'), t('save'));
+}
+
+async function generateImage(){
+  vibrate();
+  const prompt = document.getElementById('drawPrompt').value.trim();
+  if(!prompt) return showToast(t('tip'), t('pleaseInputPrompt'));
+  if(!drawConfig.apiKey) return showToast(t('warning'), t('pleaseInputApiKey'), 'warning');
+  
+  const resultBox = document.getElementById('drawResult');
+  const downloadBtn = document.getElementById('downloadDrawBtn');
+  resultBox.innerHTML = `<div style="display:flex;flex-direction:column;align-items:center;gap:12px;"><div class="spinner"></div><span>${t('generating')}</span></div>`;
+  downloadBtn.classList.remove('show');
+  
+  try {
+    const url = drawConfig.apiBase.replace(/\/$/, '') + '/images/generations';
+    const headers = {
+      'Content-Type':'application/json',
+      'Authorization':'Bearer '+drawConfig.apiKey
+    };
+    
+    const res = await fetch(url, {
+      method:'POST', headers,
+      body: JSON.stringify({
+        model: drawConfig.model, prompt, n: 1,
+        size: '1024x1024', response_format: 'url'
+      })
+    });
+    if(!res.ok) throw new Error(`HTTP ${res.status}`);
+    const data = await res.json();
+    const imgUrl = data.data?.[0]?.url;
+    if(!imgUrl) throw new Error('未返回图片');
+    
+    currentDrawImage = imgUrl;
+    resultBox.innerHTML = `<img src="${imgUrl}" alt="生成结果" onclick="openImageViewer('${imgUrl}')" style="width:100%;height:100%;object-fit:contain;">`;
+    downloadBtn.classList.add('show');
+    
+  } catch(err){
+    resultBox.innerHTML = `<span style="color:#ef4444;">${t('generateFailed')}${err.message}</span>`;
+  }
+}
+
+function downloadDrawImage(){
+  if(!currentDrawImage) return;
+  const a = document.createElement('a');
+  a.href = currentDrawImage;
+  a.download = 'ai-generated.png';
+  a.click();
+}
+
+/* ========== 图片查看器 ========== */
+function openImageViewer(src){
+  currentViewImage = src;
+  document.getElementById('viewerImg').src = src;
+  document.getElementById('imageViewer').classList.add('open');
+}
+
+function closeImageViewer(){
+  document.getElementById('imageViewer').classList.remove('open');
+}
+
+/* ========== 设置面板 ========== */
+function openSettings(){
+  vibrate();
+  document.getElementById('themeSelect').value = settings.theme;
+  document.getElementById('langSelect').value = settings.lang;
+  document.getElementById('zoomValue').textContent = (settings.uiZoom || 100) + '%';
+  document.getElementById('settingsModal').classList.add('open');
+}
+
+function closeSettings(){
+  document.getElementById('settingsModal').classList.remove('open');
+}
+
+/* ========== 公告弹窗（重点修复） ========== */
+function openNoticeModal(){
+  const modal = document.getElementById('noticeModal');
+  const agreeBtn = document.getElementById('noticeAgreeBtn');
+  const content = document.getElementById('noticeContent');
+  
+  agreeBtn.disabled = true;
+  content.scrollTop = 0;
+  
+  // 滚动到底部解锁同意按钮
+  const checkScroll = () => {
+    if(content.scrollTop + content.clientHeight >= content.scrollHeight - 5){
+      agreeBtn.disabled = false;
+    }
+  };
+  content.addEventListener('scroll', checkScroll);
+  setTimeout(checkScroll, 100);
+  
+  modal.classList.add('open');
+}
+
+function closeNoticeModal(){
+  document.getElementById('noticeModal').classList.remove('open');
+}
+
+// 取消按钮：退出应用
+function noticeCancel(){
+  closeNoticeModal();
+  // 尝试关闭页面
+  window.close();
+  // 关不掉就回退
+  setTimeout(() => {
+    if(window.history.length > 1){
+      window.history.back();
+    } else {
+      showToast(t('warning'), '请手动关闭当前页面');
+    }
+  }, 100);
+}
+
+// 同意并继续
+function noticeAgree(){
+  localStorage.setItem('noticeAgreed', 'true');
+  closeNoticeModal();
+}
+
+/* ========== 打赏、关于 ========== */
+function openRewardModal(){
+  closeSettings();
+  document.getElementById('rewardModal').classList.add('open');
+}
+
+function closeRewardModal(){
+  document.getElementById('rewardModal').classList.remove('open');
+}
+
+function openAboutModal(){
+  closeSettings();
+  document.getElementById('aboutModal').classList.add('open');
+}
+
+function closeAboutModal(){
+  document.getElementById('aboutModal').classList.remove('open');
+}
+
+/* ========== 危险功能 ========== */
+function resetSettings(){
+  showConfirm(t('warning'), t('confirmResetSettings'), () => {
+    settings = getDefaultSettings();
+    devSettings = getDefaultDevSettings();
+    saveAll();
+    applyAllSettings();
+    openSettings();
+    showToast(t('tip'), '已重置为默认设置');
+  });
+}
+
+function deleteAllAgents(){
+  showConfirm(t('warning'), t('confirmDeleteAllAgents'), () => {
+    agents = [];
+    saveAll();
+    renderAgentList();
+    goHome();
+    showToast(t('tip'), '已清空全部智能体');
+  });
+}
+
+/* ========== 全局事件绑定（全部用事件委托） ========== */
+function bindAllEvents(){
+  // 首页
+  on('#openSettingsBtn', () => openSettings());
+  on('#fabMainBtn', () => { vibrate(); toggleFab(); });
+  on('#goDrawBtn', () => goDrawPage());
+  on('#newAgentBtn', () => openCreateAgent());
+  
+  // 智能体列表操作
+  on('.agent-item', (e, target) => {
+    if(e.target.closest('.agent-actions')) return;
+    goChatPage(target.dataset.id);
+  });
+  on('[data-action="pin"]', (e, target) => {
+    e.stopPropagation();
+    vibrate();
+    toggleAgentPin(target.dataset.id);
+  });
+  on('[data-action="edit"]', (e, target) => {
+    e.stopPropagation();
+    vibrate();
+    editAgent(target.dataset.id);
+  });
+  on('[data-action="delete"]', (e, target) => {
+    e.stopPropagation();
+    vibrate();
+    deleteAgent(target.dataset.id);
+  });
+  
+  // 聊天页
+  on('#openDrawerBtn', () => { vibrate(); toggleDrawer(true); });
+  on('#drawerMask', () => toggleDrawer(false));
+  on('#closeDrawerBtn', () => { vibrate(); toggleDrawer(false); });
+  on('#goHomeBtn2', () => goHome());
+  on('#newSessionBtn', () => newSession());
+  on('#drawerNoticeBtn', () => {
+    toggleDrawer(false);
+    openNoticeModal();
+  });
+  
+  // 会话列表操作
+  on('.session-item', (e, target) => {
+    if(e.target.closest('.session-item-actions')) return;
+    vibrate();
+    switchSession(target.dataset.id);
+  });
+  on('.session-item [data-action="rename"]', (e, target) => {
+    e.stopPropagation();
+    vibrate();
+    renameSession(target.dataset.id);
+  });
+  on('.session-item [data-action="delete"]', (e, target) => {
+    e.stopPropagation();
+    vibrate();
+    deleteSession(target.dataset.id);
+  });
+  
+  on('#sendMsgBtn', () => sendMessage());
+  on('#chatInput', (e) => {
+    e.target.style.height = 'auto';
+    e.target.style.height = Math.min(e.target.scrollHeight, 120) + 'px';
+    updateWordCount();
+  });
+  
+  document.getElementById('chatInput').addEventListener('keydown', e => {
+    if(e.key === 'Enter' && !e.shiftKey && settings.enterSend){
+      e.preventDefault();
+      sendMessage();
+    }
+  });
+  
+  on('#chatModel', () => onModelClick());
+  
+  // 生图页
+  on('#goHomeBtn3', () => goHome());
+  on('#drawSettingBtn', () => openDrawSettings());
+  on('#generateImgBtn', () => generateImage());
+  on('#downloadDrawBtn', () => downloadDrawImage());
+  
+  // 设置面板
+  on('#closeSettingsBtn', () => closeSettings());
+  on('#themeSelect', (e) => {
+    settings.theme = e.target.value;
+    setTheme(settings.theme);
+    saveAll();
+  });
+  on('#langSelect', (e) => {
+    settings.lang = e.target.value;
+    applyAllSettings();
+    saveAll();
+  });
+  on('#zoomMinusBtn', () => changeZoom(-5));
+  on('#zoomPlusBtn', () => changeZoom(5));
+  
+  // 打赏、关于
+  on('#openRewardBtn', () => openRewardModal());
+  on('#closeRewardBtn', () => closeRewardModal());
+  on('#openAboutBtn', () => openAboutModal());
+  on('#closeAboutBtn', () => closeAboutModal());
+  
+  // 公告弹窗
+  on('#noticeCancelBtn', () => noticeCancel());
+  on('#noticeAgreeBtn', () => noticeAgree());
+  
+  // 开发者密码
+  on('#cancelDevPwdBtn', () => document.getElementById('devPasswordModal').classList.remove('open'));
+  on('#verifyDevPwdBtn', () => verifyDevPassword());
+  on('#closeDevBtn', () => closeDevPanel());
+  
+  // 开发者设置项
+  on('#apiTimeout', (e) => {
+    devSettings.apiTimeout = parseInt(e.target.value);
+    saveAll();
+  });
+  on('#contextCount', (e) => {
+    devSettings.contextCount = parseInt(e.target.value);
+    saveAll();
+  });
+  on('#temperature', (e) => {
+    devSettings.temperature = parseFloat(e.target.value);
+    saveAll();
+  });
+  on('#mockReply', (e) => {
+    devSettings.mockReply = e.target.checked;
+    saveAll();
+  });
+  on('#streamOutput', (e) => {
+    devSettings.streamOutput = e.target.checked;
+    saveAll();
+  });
+  on('#disableFilter', (e) => {
+    devSettings.disableFilter = e.target.checked;
+    unlockMode = e.target.checked;
+    saveAll();
+  });
+  
+  // 危险功能按钮
+  on('#resetSettingsBtn', () => resetSettings());
+  on('#deleteAllAgentsBtn', () => deleteAllAgents());
+  
+  // 智能体弹窗（重点修复的三个按钮）
+  on('#closeAgentModalBtn', () => closeAgentModal());
+  on('#cancelAgentBtn', () => closeAgentModal());
+  on('#saveAgentBtn', () => saveAgent());
+  on('#agentProvider', () => onProviderChange());
+  
+  // 生图设置弹窗
+  on('#closeDrawSettingBtn', () => closeDrawSettings());
+  on('#cancelDrawBtn', () => closeDrawSettings());
+  on('#saveDrawSettingBtn', () => saveDrawSettings());
+  on('#drawProvider', () => onDrawProviderChange());
+  
+  // 图片查看器
+  on('#imageViewer', () => closeImageViewer());
+  on('#downloadViewerBtn', (e) => {
+    e.stopPropagation();
+    const a = document.createElement('a');
+    a.href = currentViewImage;
+    a.download = 'image.png';
+    a.click();
+  });
+  
+  // 确认弹窗
+  on('#confirmCancelBtn', () => document.getElementById('confirmModal').classList.remove('open'));
+  on('#confirmConfirmBtn', () => document.getElementById('confirmModal').classList.remove('open'));
+  
+  // 文件上传
+  on('#fileInput', (e) => {
+    const files = Array.from(e.target.files);
+    const session = getCurrentSession();
+    const now = new Date().toLocaleTimeString('zh-CN', {hour:'2-digit', minute:'2-digit'});
+    
+    const fileList = files.map(f => ({name: f.name, size: f.size, type: f.type}));
+    let text = '';
+    files.forEach(file => {
+      text += `[文件：${file.name}，大小：${(file.size/1024).toFixed(1)}KB]\n`;
+    });
+    
+    session.messages.push({
+      role:'user', 
+      content: text.trim(), 
+      files: fileList,
+      time: now
+    });
+    
+    saveAll();
+    renderMessages();
+    e.target.value = '';
+    showToast(t('tip'), '文件已附加');
+  });
+  
+  // 系统主题变化监听
+  window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', () => {
+    if(settings.theme === 'auto'){
+      setTheme('auto');
+    }
+  });
+}
+
+/* ========== 初始化 ========== */
+function init(){
+  loadAll();
+  applyAllSettings();
+  renderAgentList();
+  bindAllEvents();
+  updateWordCount();
+  
+  // 首次启动强制弹出公告
+  if(!localStorage.getItem('noticeAgreed')){
+    setTimeout(() => openNoticeModal(), 200);
+  }
+}
+
+document.addEventListener('DOMContentLoaded', init);
+</script>
+</body>
+</html>
